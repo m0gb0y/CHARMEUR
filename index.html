@@ -347,7 +347,7 @@ body > *:not(#aura-canvas) { position: relative; z-index: 1; }
   </ul>
   <div style="display:flex;align-items:center;gap:12px;">
     <a class="nav-cta" href="https://lin.ee/uvuyKK4" target="_blank">無料相談</a>
-    <button class="hamburger" id="hamburger" aria-label="メニュー">
+    <button class="hamburger" id="hamburger" aria-label="メニュー" onclick="toggleDrawer()">
       <span></span><span></span><span></span>
     </button>
   </div>
@@ -1083,12 +1083,24 @@ function closeDrawer() {
   drawer.classList.remove('open');
   overlay.classList.remove('open');
 }
-hamburger.addEventListener('click', () => {
-  const isOpen = drawer.classList.toggle('open');
-  hamburger.classList.toggle('open', isOpen);
-  overlay.classList.toggle('open', isOpen);
-});
 overlay.addEventListener('click', closeDrawer);
+
+function toggleDrawer() {
+  var h = document.getElementById('hamburger');
+  var d = document.getElementById('drawer');
+  var o = document.getElementById('drawer-overlay');
+  if (!h||!d||!o) return;
+  var open = d.classList.contains('open');
+  if (open) {
+    h.classList.remove('open');
+    d.classList.remove('open');
+    o.classList.remove('open');
+  } else {
+    h.classList.add('open');
+    d.classList.add('open');
+    o.classList.add('open');
+  }
+}
 </script>
 </body>
 </html>
