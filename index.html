@@ -232,6 +232,13 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 .drawer.open { right: 0; }
 .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 140; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
 .drawer-overlay.open { opacity: 1; pointer-events: all; }
+/* The site-wide "body > *:not(#aura-canvas) { position: relative; z-index: 1; }" rule
+   (below) also matches #drawer-root since it's a direct body child. That would turn
+   it into a positioned element with its own stacking context, which then gets
+   painted *underneath* later same-level siblings (like <section class="hero">) in
+   DOM order — hiding the drawer/overlay even while "open". Force it back to a
+   plain, non-positioned box so its fixed children stack against the page root. */
+#drawer-root { position: static !important; z-index: auto !important; }
 .drawer-link { display: block; font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 300; color: var(--muted); text-decoration: none; padding: 16px 0; border-bottom: 1px solid var(--border); transition: color 0.2s; letter-spacing: 0.05em; }
 .drawer-link:hover { color: var(--cream); }
 .drawer-link span { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); display: block; margin-bottom: 2px; font-family: 'Inter', sans-serif; font-weight: 300; }
