@@ -228,7 +228,7 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 .hamburger.open span:nth-child(2) { opacity: 0; }
 .hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
 
-.drawer { position: fixed; top: 0; right: 0; width: min(280px, 80vw); height: 100vh; background: var(--dark); border-left: 1px solid var(--border); z-index: 150; transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1); padding: 80px 32px 40px; display: flex; flex-direction: column; gap: 0; }
+.drawer { position: fixed; top: 0; right: 0; width: min(280px, 80vw); height: 100vh; background: var(--dark); border-left: 1px solid var(--border); z-index: 150; transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1); padding: 80px 32px 40px; display: flex; flex-direction: column; gap: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .drawer.open { transform: translateX(0); }
 .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 140; opacity: 0; pointer-events: none; transition: opacity 0.35s; }
 .drawer-overlay.open { opacity: 1; pointer-events: all; }
