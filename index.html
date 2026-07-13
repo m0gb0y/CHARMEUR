@@ -351,8 +351,14 @@ body > *:not(#aura-canvas) { position: relative; z-index: 1; }
       <span></span><span></span><span></span>
     </button>
   </div>
+</nav>
 
-  <!-- DRAWER -->
+<!-- DRAWER: wrapped so it's a grandchild of body, not a direct child. This avoids
+     both (a) nav's backdrop-filter creating a containing block that would trap
+     position:fixed descendants inside the nav bar, and (b) the
+     `body > *:not(#aura-canvas) { position: relative }` rule that would otherwise
+     force these elements out of fixed positioning and into normal document flow. -->
+<div id="drawer-root">
   <div class="drawer-overlay" id="drawer-overlay"></div>
   <div class="drawer" id="drawer">
     <a class="drawer-link" href="#what" onclick="closeDrawer()"><span>01</span>サービス</a>
@@ -365,7 +371,7 @@ body > *:not(#aura-canvas) { position: relative; z-index: 1; }
     <a class="drawer-link" href="partners.html" onclick="closeDrawer()"><span>07</span>提携サロン</a>
     <a class="drawer-cta" href="https://lin.ee/uvuyKK4" target="_blank">💬 無料相談はこちら</a>
   </div>
-</nav>
+</div>
 
 <!-- HERO -->
 <section class="hero">
