@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>提携先管理 — Sensualead</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: dark; --black:#0c0c0e; --dark:#141418; --slate:#1e1e24; --gold:#b8965a; --cream:#f0ede8; --muted:#9a958f; --border:rgba(184,150,90,.22); --red:#d97777; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--black); color:var(--cream); font:300 14px/1.7 Inter,sans-serif; }
+    header { position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px clamp(18px,5vw,64px); background:rgba(12,12,14,.96); border-bottom:1px solid var(--border); backdrop-filter:blur(10px); }
+    .brand { color:var(--cream); font:400 21px Cormorant Garamond,serif; letter-spacing:.12em; text-decoration:none; }
+    .brand span { color:var(--gold); }
+    .header-actions { display:flex; align-items:center; gap:16px; }
+    .header-actions a { color:var(--muted); text-decoration:none; font-size:12px; }
+    main { width:min(1040px,100%); margin:0 auto; padding:44px 20px 72px; }
+    h1 { margin:0; font:300 clamp(32px,6vw,48px)/1.2 Cormorant Garamond,serif; }
+    h1 em { color:var(--gold); font-style:italic; }
+    .intro { color:var(--muted); margin:8px 0 28px; }
+    .panel { background:var(--dark); border:1px solid var(--border); padding:clamp(20px,4vw,32px); }
+    .login-wrap { max-width:480px; margin:8vh auto; }
+    .login-wrap h2, .section-heading { margin:0 0 16px; font:400 24px Cormorant Garamond,serif; }
+    .eyebrow { color:var(--gold); font-size:10px; letter-spacing:.25em; text-transform:uppercase; }
+    form { display:grid; gap:16px; }
+    .fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .field { display:grid; gap:6px; }
+    .field.full { grid-column:1/-1; }
+    label { color:var(--muted); font-size:11px; letter-spacing:.08em; }
+    input, select, textarea { width:100%; min-height:44px; border:1px solid var(--border); border-radius:2px; padding:10px 12px; background:#0f0f12; color:var(--cream); font:400 14px Inter,sans-serif; }
+    textarea { min-height:112px; resize:vertical; }
+    input:focus, select:focus, textarea:focus { outline:2px solid rgba(184,150,90,.55); outline-offset:1px; }
+    .check-row { display:flex; flex-wrap:wrap; align-items:center; gap:18px; }
+    .check-row label { display:flex; align-items:center; gap:8px; color:var(--cream); font-size:13px; letter-spacing:0; }
+    .check-row input { width:18px; min-height:18px; accent-color:var(--gold); }
+    button { min-height:44px; border:1px solid var(--gold); border-radius:2px; padding:10px 18px; background:var(--gold); color:var(--black); font:500 12px Inter,sans-serif; letter-spacing:.12em; cursor:pointer; }
+    button:hover { filter:brightness(1.08); }
+    button:disabled { opacity:.55; cursor:wait; }
+    button.secondary { background:transparent; color:var(--gold); }
+    button.danger { border-color:rgba(217,119,119,.55); color:var(--red); background:transparent; }
+    .form-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .message { min-height:22px; margin:0; color:var(--muted); font-size:12px; }
+    .message.error { color:var(--red); }
+    .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:38px 0 16px; }
+    .toolbar h2 { margin:0; font:400 26px Cormorant Garamond,serif; }
+    .partner-list { display:grid; gap:10px; }
+    .partner-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 18px; background:var(--dark); border:1px solid var(--border); }
+    .partner-info { min-width:0; }
+    .partner-info strong { display:block; font-weight:400; overflow-wrap:anywhere; }
+    .partner-info span { color:var(--muted); font-size:11px; }
+    .status { display:inline-block; margin-left:8px; color:var(--gold)!important; letter-spacing:.08em; }
+    .row-actions { display:flex; gap:8px; flex-shrink:0; }
+    .row-actions button { min-height:36px; padding:7px 12px; font-size:10px; }
+    .hidden { display:none!important; }
+    @media (max-width:640px) {
+      .fields { grid-template-columns:1fr; }
+      .field.full { grid-column:auto; }
+      .toolbar { align-items:flex-start; flex-direction:column; }
+      .partner-row { align-items:flex-start; flex-direction:column; }
+      .row-actions { width:100%; }
+      .row-actions button { flex:1; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">Sensua<span>lead</span></a>
+    <div class="header-actions">
+      <a href="/#partners">公開ページを見る</a>
+      <button id="logout-button" class="secondary hidden" type="button">ログアウト</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="login-panel" class="panel login-wrap">
+      <p class="eyebrow">Partner administration</p>
+      <h1>提携先<em>管理</em></h1>
+      <p class="intro">管理用パスワードでログインしてください。</p>
+      <form id="login-form">
+        <input type="text" name="username" autocomplete="username" value="admin" tabindex="-1" aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;">
+        <div class="field">
+          <label for="password">管理用パスワード</label>
+          <input id="password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="form-actions"><button type="submit">ログイン</button></div>
+        <p id="login-message" class="message" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="dashboard" class="hidden">
+      <p class="eyebrow">Partner administration</p>
+      <h1>提携先<em>管理</em></h1>
+      <p class="intro">公開にすると、トップページの「提携サロン」欄に反映されます。</p>
+
+      <section class="panel" aria-labelledby="form-title">
+        <h2 id="form-title" class="section-heading">提携先を追加</h2>
+        <form id="partner-form">
+          <input id="partner-id" type="hidden">
+          <div class="fields">
+            <div class="field">
+              <label for="name">提携先名 *</label>
+              <input id="name" name="name" maxlength="120" required>
+            </div>
+            <div class="field">
+              <label for="category">カテゴリ *</label>
+              <select id="category" name="category" required>
+                <option value="hair">美容院・ヘア</option>
+                <option value="grooming">身だしなみ</option>
+                <option value="fashion">ファッション</option>
+                <option value="photo">フォト撮影</option>
+                <option value="wellness">ウェルネス</option>
+                <option value="whitening">ホワイトニング</option>
+                <option value="clinic">クリニック</option>
+                <option value="lesson">講座</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="area">エリア</label>
+              <input id="area" name="area" maxlength="120" placeholder="例：名古屋市中区">
+            </div>
+            <div class="field">
+              <label for="website_url">ウェブサイトURL</label>
+              <input id="website_url" name="website_url" type="url" placeholder="https://example.com">
+            </div>
+            <div class="field full">
+              <label for="description">紹介文</label>
+              <textarea id="description" name="description" maxlength="2000"></textarea>
+            </div>
+            <div class="field">
+              <label for="image_url">画像URL（任意）</label>
+              <input id="image_url" name="image_url" type="url" placeholder="https://example.com/photo.jpg">
+            </div>
+            <div class="field">
+              <label for="nexus_points">Nexus Point 上限</label>
+              <input id="nexus_points" name="nexus_points" type="number" min="0" max="1000000" step="1" value="0">
+            </div>
+            <div class="field">
+              <label for="map_x">地図上の横位置（任意・0〜100）</label>
+              <input id="map_x" name="map_x" type="number" min="0" max="100" step="0.1">
+            </div>
+            <div class="field">
+              <label for="map_y">地図上の縦位置（任意・0〜100）</label>
+              <input id="map_y" name="map_y" type="number" min="0" max="100" step="0.1">
+            </div>
+            <div class="field full">
+              <label for="display_order">表示順（小さい数字が先）</label>
+              <input id="display_order" name="display_order" type="number" min="0" max="100000" step="1" value="0">
+            </div>
+          </div>
+          <div class="check-row">
+            <label><input id="published" name="published" type="checkbox"> 公開する</label>
+          </div>
+          <div class="form-actions">
+            <button id="save-button" type="submit">保存</button>
+            <button id="cancel-edit" class="secondary hidden" type="button">編集をキャンセル</button>
+          </div>
+          <p id="form-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <div class="toolbar">
+        <h2>登録済みの提携先</h2>
+        <button id="new-button" class="secondary" type="button">新しい提携先を追加</button>
+      </div>
+      <div id="partner-list" class="partner-list" aria-live="polite"></div>
+      <p id="list-message" class="message" role="status"></p>
+    </section>
+  </main>
+
+  <script>
+    const labels = {
+      hair: '美容院・ヘア', grooming: '身だしなみ', fashion: 'ファッション',
+      photo: 'フォト撮影', wellness: 'ウェルネス', whitening: 'ホワイトニング',
+      clinic: 'クリニック', lesson: '講座'
+    };
+    const loginPanel = document.getElementById('login-panel');
+    const dashboard = document.getElementById('dashboard');
+    const loginMessage = document.getElementById('login-message');
+    const formMessage = document.getElementById('form-message');
+    const listMessage = document.getElementById('list-message');
+    const form = document.getElementById('partner-form');
+    const partnerList = document.getElementById('partner-list');
+    const logoutButton = document.getElementById('logout-button');
+    const cancelEdit = document.getElementById('cancel-edit');
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        credentials: 'same-origin',
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || '処理に失敗しました。');
+      return data;
+    }
+
+    function showDashboard() {
+      loginPanel.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      logoutButton.classList.remove('hidden');
+      loadPartners();
+    }
+
+    function resetForm() {
+      form.reset();
+      document.getElementById('partner-id').value = '';
+      document.getElementById('nexus_points').value = '0';
+      document.getElementById('display_order').value = '0';
+      document.getElementById('form-title').textContent = '提携先を追加';
+      document.getElementById('save-button').textContent = '保存';
+      cancelEdit.classList.add('hidden');
+      formMessage.textContent = '';
+      formMessage.classList.remove('error');
+    }
+
+    function value(id) { return document.getElementById(id).value.trim(); }
+
+    function renderPartners(items) {
+      partnerList.replaceChildren();
+      if (!items.length) {
+        listMessage.textContent = '提携先はまだ登録されていません。上のフォームから追加してください。';
+        return;
+      }
+      listMessage.textContent = '';
+      for (const partner of items) {
+        const row = document.createElement('article');
+        row.className = 'partner-row';
+        const info = document.createElement('div');
+        info.className = 'partner-info';
+        const title = document.createElement('strong');
+        title.textContent = partner.name;
+        const status = document.createElement('span');
+        status.className = 'status';
+        status.textContent = partner.published ? '公開中' : '非公開';
+        title.append(status);
+        const details = document.createElement('span');
+        details.textContent = [labels[partner.category] || partner.category, partner.area].filter(Boolean).join(' ・ ');
+        info.append(title, details);
+
+        const actions = document.createElement('div');
+        actions.className = 'row-actions';
+        const edit = document.createElement('button');
+        edit.type = 'button';
+        edit.className = 'secondary';
+        edit.textContent = '編集';
+        edit.addEventListener('click', () => editPartner(partner));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'danger';
+        remove.textContent = '削除';
+        remove.addEventListener('click', () => deletePartner(partner));
+        actions.append(edit, remove);
+        row.append(info, actions);
+        partnerList.append(row);
+      }
+    }
+
+    async function loadPartners() {
+      listMessage.textContent = '読み込み中…';
+      try {
+        const data = await api('/api/admin/partners');
+        renderPartners(data.partners);
+      } catch (error) {
+        listMessage.textContent = error.message;
+        listMessage.classList.add('error');
+      }
+    }
+
+    function editPartner(partner) {
+      document.getElementById('partner-id').value = partner.id;
+      document.getElementById('name').value = partner.name;
+      document.getElementById('category').value = partner.category;
+      document.getElementById('area').value = partner.area;
+      document.getElementById('description').value = partner.description;
+      document.getElementById('website_url').value = partner.website_url;
+      document.getElementById('image_url').value = partner.image_url;
+      document.getElementById('nexus_points').value = partner.nexus_points;
+      document.getElementById('map_x').value = partner.map_x ?? '';
+      document.getElementById('map_y').value = partner.map_y ?? '';
+      document.getElementById('display_order').value = partner.display_order;
+      document.getElementById('published').checked = partner.published;
+      document.getElementById('form-title').textContent = '提携先を編集';
+      document.getElementById('save-button').textContent = '変更を保存';
+      cancelEdit.classList.remove('hidden');
+      document.getElementById('name').focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function deletePartner(partner) {
+      if (!window.confirm(`「${partner.name}」を削除しますか？`)) return;
+      try {
+        await api(`/api/admin/partners/${encodeURIComponent(partner.id)}`, { method: 'DELETE' });
+        if (document.getElementById('partner-id').value === partner.id) resetForm();
+        await loadPartners();
+      } catch (error) {
+        listMessage.textContent = error.message;
+        listMessage.classList.add('error');
+      }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      loginMessage.textContent = '確認中…';
+      loginMessage.classList.remove('error');
+      try {
+        await api('/api/admin/login', {
+          method: 'POST',
+          body: JSON.stringify({ password: document.getElementById('password').value })
+        });
+        document.getElementById('password').value = '';
+        showDashboard();
+      } catch (error) {
+        loginMessage.textContent = error.message;
+        loginMessage.classList.add('error');
+      }
+    });
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const id = document.getElementById('partner-id').value;
+      const button = document.getElementById('save-button');
+      const payload = {
+        name: value('name'),
+        category: value('category'),
+        area: value('area'),
+        description: value('description'),
+        website_url: value('website_url'),
+        image_url: value('image_url'),
+        nexus_points: Number(value('nexus_points') || 0),
+        map_x: value('map_x') || null,
+        map_y: value('map_y') || null,
+        display_order: Number(value('display_order') || 0),
+        published: document.getElementById('published').checked
+      };
+      button.disabled = true;
+      formMessage.textContent = '保存中…';
+      formMessage.classList.remove('error');
+      try {
+        await api(id ? `/api/admin/partners/${encodeURIComponent(id)}` : '/api/admin/partners', {
+          method: id ? 'PUT' : 'POST',
+          body: JSON.stringify(payload)
+        });
+        resetForm();
+        formMessage.textContent = '保存しました。公開設定の提携先はページを再読み込みすると反映されます。';
+        await loadPartners();
+      } catch (error) {
+        formMessage.textContent = error.message;
+        formMessage.classList.add('error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    cancelEdit.addEventListener('click', resetForm);
+    document.getElementById('new-button').addEventListener('click', () => {
+      resetForm();
+      document.getElementById('name').focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    logoutButton.addEventListener('click', async () => {
+      try { await api('/api/admin/logout', { method: 'POST', body: '{}' }); } catch (_) {}
+      dashboard.classList.add('hidden');
+      logoutButton.classList.add('hidden');
+      loginPanel.classList.remove('hidden');
+    });
+
+    api('/api/admin/session').then(data => {
+      if (data.authenticated) showDashboard();
+    }).catch(() => {});
+  </script>
+</body>
+</html>

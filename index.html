@@ -964,10 +964,8 @@ body > *:not(#aura-canvas):not(nav) { position: relative; z-index: 1; }
         共に変革を担う、<em style="font-style:italic;color:var(--gold);">提携サロン。</em>
       </h2>
       <p style="font-size:13px;color:var(--muted);max-width:400px;line-height:1.9;">美容・スタイリング・身だしなみの各分野で選び抜いたプロフェッショナルたちと連携し、あなたの変革を支える。</p>
-      <div style="display:inline-flex;align-items:center;gap:12px;border:1px dashed rgba(184,150,90,0.3);padding:14px 32px;">
-        <span style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:#B8965A;">Coming Soon</span>
-        <span style="font-size:10px;color:#7A7570;">提携サロンは準備中です</span>
-      </div>
+      <p id="partner-empty" style="font-size:11px;color:#7A7570;border:1px dashed rgba(184,150,90,0.3);padding:14px 24px;">提携先情報を読み込み中…</p>
+      <div id="partner-cards" style="width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;text-align:left;"></div>
     </div>
   </div>
 </section>
@@ -1117,6 +1115,64 @@ function toggleDrawer() {
     o.classList.add('open');
   }
 }
+</script>
+<script>
+  (async function loadPartnerCards() {
+    const list = document.getElementById('partner-cards');
+    const empty = document.getElementById('partner-empty');
+    try {
+      const response = await fetch('/api/partners', { cache: 'no-store' });
+      if (!response.ok) throw new Error('提携先情報を取得できませんでした。');
+      const data = await response.json();
+      list.replaceChildren();
+      for (const partner of data.partners) {
+        const card = document.createElement('article');
+        card.style.cssText = 'background:var(--dark);border:1px solid var(--border);padding:20px;min-width:0;';
+        if (partner.image_url) {
+          const image = document.createElement('img');
+          image.src = partner.image_url;
+          image.alt = partner.name;
+          image.loading = 'lazy';
+          image.style.cssText = 'width:100%;height:170px;object-fit:cover;margin-bottom:12px;';
+          card.append(image);
+        }
+        const category = document.createElement('p');
+        category.textContent = ({hair:'美容院・ヘア',grooming:'身だしなみ',fashion:'ファッション',photo:'フォト撮影',wellness:'ウェルネス',whitening:'ホワイトニング',clinic:'クリニック',lesson:'講座'})[partner.category] || partner.category;
+        category.style.cssText = 'color:var(--gold);font-size:9px;letter-spacing:.18em;margin:0 0 6px;';
+        const name = document.createElement('h3');
+        name.textContent = partner.name;
+        name.style.cssText = 'font-family:"Cormorant Garamond",serif;font-size:22px;font-weight:400;margin:0 0 4px;color:var(--cream);';
+        const area = document.createElement('p');
+        area.textContent = partner.area ? '📍 ' + partner.area : '';
+        area.style.cssText = 'color:var(--muted);font-size:11px;margin:0 0 8px;';
+        const description = document.createElement('p');
+        description.textContent = partner.description;
+        description.style.cssText = 'color:var(--muted);font-size:12px;line-height:1.8;margin:0;';
+        card.append(category, name, area, description);
+        if (partner.nexus_points > 0) {
+          const points = document.createElement('p');
+          points.textContent = '上限 ' + partner.nexus_points.toLocaleString() + ' Nexus Point / 回';
+          points.style.cssText = 'color:var(--gold);font-size:10px;margin:12px 0 0;';
+          card.append(points);
+        }
+        if (partner.website_url) {
+          const link = document.createElement('a');
+          link.href = partner.website_url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          link.textContent = 'サイトを見る →';
+          link.style.cssText = 'display:inline-block;margin-top:12px;color:var(--gold);font-size:10px;text-decoration:none;border-bottom:1px solid var(--border);';
+          card.append(link);
+        }
+        list.append(card);
+      }
+      empty.textContent = data.partners.length ? '' : '提携サロンは準備中です';
+      empty.style.display = data.partners.length ? 'none' : 'block';
+    } catch (error) {
+      empty.textContent = '提携先情報を読み込めませんでした。時間をおいて再度ご確認ください。';
+      empty.style.display = 'block';
+    }
+  })();
 </script>
 </body>
 </html>
