@@ -30,8 +30,9 @@ class FakeClassList {
 }
 
 class FakeElement {
-  constructor(id = "") {
+  constructor(id = "", resetElements = () => {}) {
     this.id = id;
+    this.resetElements = resetElements;
     this._value = "";
     this.files = [];
     this.checked = false;
@@ -89,11 +90,7 @@ class FakeElement {
   setPointerCapture() {}
 
   reset() {
-    for (const element of elements.values()) {
-      element.value = "";
-      element.files = [];
-      element.checked = false;
-    }
+    this.resetElements();
   }
 }
 
@@ -117,12 +114,24 @@ const existingPartner = {
 function createAdminPage() {
   const elements = new Map();
   const getElementById = (id) => {
-    if (!elements.has(id)) elements.set(id, new FakeElement(id));
+    if (!elements.has(id)) {
+      elements.set(
+        id,
+        new FakeElement(id, () => {
+          for (const element of elements.values()) {
+            element.value = "";
+            element.files = [];
+            element.checked = false;
+          }
+        }),
+      );
+    }
     return elements.get(id);
   };
   const requests = [];
   const objectUrls = [];
   const revokedObjectUrls = [];
+  const uploadResponses = [];
 
   class FakeFormData {
     constructor() {
@@ -156,6 +165,15 @@ function createAdminPage() {
       let body = {};
       if (url === "/api/admin/session") {
         body = { authenticated: true };
+        } else if (url === "/api/admin/uploads/partner-image") {
+          const response = uploadResponses.shift() || {
+            ok: true,
+            body: {
+              image_url:
+                "/uploads/partners/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
+            },
+          };
+          return { ok: response.ok, json: async () => response.body };
       } else if (url === "/api/admin/partners") {
         body = { partners: [existingPartner] };
       } else if (url === `/api/admin/partners/${existingPartner.id}`) {
@@ -173,6 +191,7 @@ function createAdminPage() {
     requests,
     objectUrls,
     revokedObjectUrls,
+    uploadResponses,
   };
 }
 
@@ -236,4 +255,100 @@ test("editing and saving without choosing an image keeps the registered image UR
     false,
     "saving without a newly selected image should not upload a file",
   );
+});
+
+test("upload rejection preserves partner details and allows retry with a replacement image", async () => {
+  const page = createAdminPage();
+  await waitForDashboard(page);
+
+  const fields = {
+    name: "再試行できる提携先",
+    category: "wellness",
+    area: "名古屋市中区",
+    description: "入力した紹介文を保持します。",
+    website_url: "https://example.com/partner",
+    nexus_points: "250",
+    map_x: "42.5",
+    map_y: "61.2",
+    display_order: "3",
+  };
+  for (const [id, value] of Object.entries(fields)) {
+    page.getElementById(id).value = value;
+  }
+  page.getElementById("published").checked = true;
+
+  const fileInput = page.getElementById("image-file");
+  const rejectedFile = { name: "rejected.gif" };
+  fileInput.files = [rejectedFile];
+  page.uploadResponses.push({
+    ok: false,
+    body: { error: "JPEG、PNG、WebP形式の画像を選択してください。" },
+  });
+
+  const form = page.getElementById("partner-form");
+  await form.dispatch("submit", { preventDefault() {} });
+
+  const message = page.getElementById("form-message");
+  const saveButton = page.getElementById("save-button");
+  assert.equal(
+    message.textContent,
+    "JPEG、PNG、WebP形式の画像を選択してください。",
+  );
+  assert.equal(message.classList.contains("error"), true);
+  assert.equal(saveButton.disabled, false, "saving should be available again");
+  assert.deepEqual(fileInput.files, [rejectedFile]);
+  for (const [id, value] of Object.entries(fields)) {
+    assert.equal(page.getElementById(id).value, value, `${id} should be preserved`);
+  }
+  assert.equal(page.getElementById("published").checked, true);
+  assert.equal(
+    page.requests.some(
+      ({ url, options }) =>
+        options.method &&
+        (url === "/api/admin/partners" ||
+          url.startsWith("/api/admin/partners/")),
+    ),
+    false,
+    "partner data should not be submitted after upload rejection",
+  );
+
+  const replacementFile = { name: "replacement.jpg" };
+  fileInput.files = [replacementFile];
+  fileInput.dispatch("change");
+  assert.equal(
+    page.getElementById("image-preview-image").src,
+    "blob:preview-replacement.jpg",
+    "the replacement image should be previewed before retry",
+  );
+
+  await form.dispatch("submit", { preventDefault() {} });
+
+  const uploadRequests = page.requests.filter(
+    ({ url }) => url === "/api/admin/uploads/partner-image",
+  );
+  assert.equal(uploadRequests.length, 2, "retry should upload the new image");
+  assert.deepEqual(uploadRequests[1].options.body.entries, [
+    ["image", replacementFile],
+  ]);
+
+  const createRequest = page.requests.find(
+    ({ url, options }) => url === "/api/admin/partners" && options.method === "POST",
+  );
+  assert.ok(createRequest, "partner data should be submitted after retry succeeds");
+  assert.deepEqual(JSON.parse(createRequest.options.body), {
+    name: fields.name,
+    category: fields.category,
+    area: fields.area,
+    description: fields.description,
+    website_url: fields.website_url,
+    image_url: "/uploads/partners/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
+    nexus_points: 250,
+    map_x: fields.map_x,
+    map_y: fields.map_y,
+    display_order: 3,
+    published: true,
+  });
+  assert.equal(saveButton.disabled, false);
+  assert.match(message.textContent, /保存しました/);
+  assert.equal(message.classList.contains("error"), false);
 });
