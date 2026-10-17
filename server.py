@@ -77,6 +77,35 @@ def app_storage_client():
     return Client(bucket_id=os.environ.get("PARTNER_IMAGE_BUCKET_ID"))
 
 
+def delete_partner_image_if_unreferenced(image_url):
+    match = re.fullmatch(
+        r"/uploads/partners/([a-f0-9]{32}\.(?:jpg|png|webp))",
+        image_url or "",
+    )
+    if not match:
+        return
+
+    try:
+        with db_connection() as conn:
+            referenced = conn.execute(
+                "SELECT EXISTS (SELECT 1 FROM partner_listings WHERE image_url = %s)",
+                (image_url,),
+            ).fetchone()["exists"]
+    except Exception:
+        app.logger.exception(
+            "Unable to check whether partner image is still referenced; keeping it"
+        )
+        return
+
+    if referenced:
+        return
+
+    try:
+        app_storage_client().delete(f"partner-images/{match.group(1)}")
+    except Exception:
+        app.logger.exception("Unable to delete unused partner image from App Storage")
+
+
 def partner_json(row):
     result = {key: row[key] for key in PARTNER_FIELDS}
     result["id"] = str(result["id"])
@@ -407,6 +436,9 @@ def update_partner(partner_id):
                 data["display_order"], partner_id,
             ),
         ).fetchone()
+        old_image_url = existing["image_url"]
+    if old_image_url != data["image_url"]:
+        delete_partner_image_if_unreferenced(old_image_url)
     return jsonify(partner=partner_json(row))
 
 
@@ -416,11 +448,12 @@ def delete_partner(partner_id):
     validate_same_origin()
     with db_connection() as conn:
         result = conn.execute(
-            "DELETE FROM partner_listings WHERE id = %s RETURNING id",
+            "DELETE FROM partner_listings WHERE id = %s RETURNING id, image_url",
             (partner_id,),
         ).fetchone()
     if not result:
         return jsonify(error="提携先が見つかりません。"), 404
+    delete_partner_image_if_unreferenced(result["image_url"])
     return jsonify(ok=True)
 
 
