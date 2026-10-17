@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     :root { color-scheme: dark; --black:#0c0c0e; --dark:#141418; --slate:#1e1e24; --gold:#b8965a; --cream:#f0ede8; --muted:#9a958f; --border:rgba(184,150,90,.22); --red:#d97777; }
     * { box-sizing:border-box; }
@@ -33,12 +34,14 @@
     input, select, textarea { width:100%; min-height:44px; border:1px solid var(--border); border-radius:2px; padding:10px 12px; background:#0f0f12; color:var(--cream); font:400 14px Inter,sans-serif; }
     textarea { min-height:112px; resize:vertical; }
     input:focus, select:focus, textarea:focus { outline:2px solid rgba(184,150,90,.55); outline-offset:1px; }
-    .map-picker { position:relative; overflow:hidden; border:1px solid var(--border); background:var(--slate); }
-    .map-picker iframe { display:block; width:100%; height:420px; border:0; filter:grayscale(30%) brightness(.85); }
-    .map-picker-surface { position:absolute; inset:0; z-index:1; width:100%; min-height:0; padding:0; border:0; border-radius:0; background:transparent; touch-action:none; cursor:crosshair; }
-    .map-picker-surface:hover { filter:none; }
+    .map-picker { overflow:hidden; border:1px solid var(--border); background:var(--slate); }
+    .map-picker-surface { width:100%; height:420px; background:var(--slate); }
     .map-picker-surface:focus-visible { outline:2px solid var(--gold); outline-offset:-4px; }
-    .map-picker-marker { position:absolute; z-index:2; display:none; width:34px; height:34px; align-items:center; justify-content:center; transform:translate(-50%,-50%); border:2px solid var(--cream); border-radius:50%; background:var(--gold); color:var(--black); box-shadow:0 2px 14px rgba(0,0,0,.65); font-size:9px; font-weight:600; pointer-events:none; }
+    .map-picker-surface .leaflet-tile { filter:grayscale(30%) brightness(.88); }
+    .map-picker-surface .leaflet-control-attribution { background:rgba(12,12,14,.82); color:var(--muted); font-size:10px; }
+    .map-picker-surface .leaflet-control-attribution a { color:var(--gold); }
+    .admin-map-marker { background:transparent; border:0; }
+    .map-picker-marker { display:flex; width:34px; height:34px; align-items:center; justify-content:center; border:2px solid var(--cream); border-radius:50%; background:var(--gold); color:var(--black); box-shadow:0 2px 14px rgba(0,0,0,.65); font-size:9px; font-weight:600; }
     .map-position-status { margin:0; color:var(--muted); font-size:11px; }
     .image-preview { display:flex; align-items:center; justify-content:center; min-height:120px; padding:10px; border:1px solid var(--border); background:#0f0f12; }
     .image-preview img { display:block; max-width:100%; max-height:240px; object-fit:contain; }
@@ -102,7 +105,7 @@
     <section id="dashboard" class="hidden">
       <p class="eyebrow">Partner administration</p>
       <h1>提携先<em>管理</em></h1>
-      <p class="intro">公開にすると、トップページの「提携サロン」欄に反映されます。</p>
+        <p class="intro">公開にすると、提携先一覧ページに反映されます。</p>
 
       <section class="panel" aria-labelledby="form-title">
         <h2 id="form-title" class="section-heading">提携先を追加</h2>
@@ -164,17 +167,11 @@
               <input id="map_y" name="map_y" type="number" min="0" max="100" step="0.1">
             </div>
             <div class="field full">
-              <label for="map-picker-surface">地図上の位置（タップ・ドラッグ、または矢印キーで指定）</label>
+              <label id="map-picker-label">地図上の位置（地図をズームし、タップまたはピンをドラッグして指定）</label>
               <div class="map-picker">
-                <iframe
-                  title="愛知県名古屋市周辺の地図"
-                  src="https://maps.google.com/maps?q=%E6%84%9B%E7%9F%A5%E7%9C%8C%E5%90%8D%E5%8F%A4%E5%B1%8B%E5%B8%82&t=&z=11&ie=UTF8&iwloc=&output=embed"
-                  allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade" tabindex="-1">
-                </iframe>
-                <button id="map-picker-surface" class="map-picker-surface" type="button" aria-label="地図上の提携先ピン位置を指定。矢印キーで移動できます"></button>
-                <div id="map-picker-marker" class="map-picker-marker" aria-hidden="true">PIN</div>
+                <div id="map-picker-surface" class="map-picker-surface" tabindex="0" role="region" aria-labelledby="map-picker-label" aria-label="提携先の位置を選ぶ地図。矢印キーでもピンを移動できます"></div>
               </div>
-              <p id="map-position-status" class="map-position-status" aria-live="polite">地図をタップまたはドラッグして位置を指定できます。キーボードでは矢印キーで移動できます。</p>
+              <p id="map-position-status" class="map-position-status" aria-live="polite">地図をズームしてタップするか、ピンをドラッグしてください。地図にフォーカスし、矢印キーでも位置を調整できます。</p>
             </div>
             <div class="field full">
               <label for="display_order">表示順（小さい数字が先）</label>
@@ -201,6 +198,7 @@
     </section>
   </main>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const labels = {
       hair: '美容院・ヘア', grooming: '身だしなみ', fashion: 'ファッション',
@@ -217,7 +215,6 @@
     const logoutButton = document.getElementById('logout-button');
     const cancelEdit = document.getElementById('cancel-edit');
     const mapPicker = document.getElementById('map-picker-surface');
-    const mapMarker = document.getElementById('map-picker-marker');
     const mapStatus = document.getElementById('map-position-status');
     const mapXInput = document.getElementById('map_x');
     const mapYInput = document.getElementById('map_y');
@@ -226,8 +223,11 @@
     const imagePreview = document.getElementById('image-preview');
     const imagePreviewImage = document.getElementById('image-preview-image');
     const imagePreviewStatus = document.getElementById('image-preview-status');
+    // map_x/map_y are normalized positions inside the same fixed map range as partners.html.
+    const PARTNER_MAP_BOUNDS = { south: 34.93, north: 35.43, west: 136.65, east: 137.20 };
     let imagePreviewObjectUrl = '';
-    let draggingMapPin = false;
+    let mapPickerMap = null;
+    let mapPickerMarker = null;
 
     async function api(path, options = {}) {
       const headers = { ...(options.headers || {}) };
@@ -246,6 +246,7 @@
       loginPanel.classList.add('hidden');
       dashboard.classList.remove('hidden');
       logoutButton.classList.remove('hidden');
+      initMapPicker();
       loadPartners();
     }
 
@@ -290,29 +291,124 @@
         : '現在の登録画像を表示しています。';
     }
 
+    function mapPercentToLatLng(x, y) {
+      return L.latLng(
+        PARTNER_MAP_BOUNDS.north - (Number(y) / 100) * (PARTNER_MAP_BOUNDS.north - PARTNER_MAP_BOUNDS.south),
+        PARTNER_MAP_BOUNDS.west + (Number(x) / 100) * (PARTNER_MAP_BOUNDS.east - PARTNER_MAP_BOUNDS.west)
+      );
+    }
+
+    function latLngToMapPercent(latLng) {
+      return {
+        x: ((latLng.lng - PARTNER_MAP_BOUNDS.west) / (PARTNER_MAP_BOUNDS.east - PARTNER_MAP_BOUNDS.west)) * 100,
+        y: ((PARTNER_MAP_BOUNDS.north - latLng.lat) / (PARTNER_MAP_BOUNDS.north - PARTNER_MAP_BOUNDS.south)) * 100
+      };
+    }
+
+    function setMapPosition(latLng) {
+      const { x, y } = latLngToMapPercent(latLng);
+      if (x < 0 || x > 100 || y < 0 || y > 100) {
+        mapStatus.textContent = '地図の表示範囲内を選択してください。';
+        renderMapPosition();
+        return;
+      }
+      mapXInput.value = x.toFixed(1);
+      mapYInput.value = y.toFixed(1);
+      renderMapPosition();
+    }
+
     function renderMapPosition() {
       const x = Number(mapXInput.value);
       const y = Number(mapYInput.value);
       const hasPosition = mapXInput.value !== '' && mapYInput.value !== ''
         && Number.isFinite(x) && Number.isFinite(y)
         && x >= 0 && x <= 100 && y >= 0 && y <= 100;
-      mapMarker.style.display = hasPosition ? 'flex' : 'none';
-      if (hasPosition) {
-        mapMarker.style.left = `${x}%`;
-        mapMarker.style.top = `${y}%`;
-        mapStatus.textContent = `選択中：横 ${x.toFixed(1)}・縦 ${y.toFixed(1)}（0〜100）`;
-      } else {
-        mapStatus.textContent = '地図をタップまたはドラッグして位置を指定できます。キーボードでは矢印キーで移動できます。';
+
+      if (!hasPosition) {
+        if (mapPickerMarker) {
+          mapPickerMarker.remove();
+          mapPickerMarker = null;
+        }
+        mapStatus.textContent = '地図をズームしてタップするか、ピンをドラッグしてください。矢印キーでも位置を調整できます。';
+        return;
       }
+      if (!mapPickerMap) return;
+
+      const position = mapPercentToLatLng(x, y);
+      if (!mapPickerMap.getBounds().contains(position)) mapPickerMap.panTo(position);
+      if (!mapPickerMarker) {
+        const icon = L.divIcon({
+          className: 'admin-map-marker',
+          html: '<span class="map-picker-marker" aria-hidden="true">PIN</span>',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+        mapPickerMarker = L.marker(position, {
+          icon,
+          draggable: true,
+          keyboard: true,
+          title: '提携先の位置'
+        }).addTo(mapPickerMap);
+        mapPickerMarker.on('dragend', () => setMapPosition(mapPickerMarker.getLatLng()));
+      } else {
+        mapPickerMarker.setLatLng(position);
+      }
+
+      const markerElement = mapPickerMarker.getElement();
+      if (markerElement) {
+        markerElement.setAttribute('role', 'button');
+        markerElement.setAttribute('aria-label', `提携先の位置。横 ${x.toFixed(1)}、縦 ${y.toFixed(1)}。矢印キーで調整できます。`);
+      }
+      mapStatus.textContent = `選択中：横 ${x.toFixed(1)}・縦 ${y.toFixed(1)}（0〜100）`;
     }
 
-    function setMapPosition(event) {
-      const bounds = mapPicker.getBoundingClientRect();
-      const x = Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100));
-      const y = Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100));
-      mapXInput.value = x.toFixed(1);
-      mapYInput.value = y.toFixed(1);
-      renderMapPosition();
+    function initMapPicker() {
+      if (mapPickerMap) {
+        requestAnimationFrame(() => mapPickerMap.invalidateSize());
+        return;
+      }
+      if (!window.L) {
+        mapStatus.textContent = '地図を読み込めませんでした。位置は横・縦の数値で指定できます。';
+        return;
+      }
+
+      const bounds = L.latLngBounds(
+        [PARTNER_MAP_BOUNDS.south, PARTNER_MAP_BOUNDS.west],
+        [PARTNER_MAP_BOUNDS.north, PARTNER_MAP_BOUNDS.east]
+      );
+      mapPickerMap = L.map(mapPicker, {
+        zoomControl: true,
+        scrollWheelZoom: false,
+        keyboard: false,
+        maxBounds: bounds.pad(0.2),
+        maxBoundsViscosity: 0.8
+      });
+      mapPickerMap.fitBounds(bounds);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+      }).addTo(mapPickerMap);
+      mapPickerMap.on('click', event => setMapPosition(event.latlng));
+      mapPicker.addEventListener('keydown', event => {
+        const changes = {
+          ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+          ArrowUp: [0, -1], ArrowDown: [0, 1]
+        };
+        const change = changes[event.key];
+        if (!change) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const step = event.shiftKey ? 5 : 1;
+        const x = Math.min(100, Math.max(0, Number(mapXInput.value || 50) + change[0] * step));
+        const y = Math.min(100, Math.max(0, Number(mapYInput.value || 50) + change[1] * step));
+        mapXInput.value = x.toFixed(1);
+        mapYInput.value = y.toFixed(1);
+        renderMapPosition();
+      });
+      mapPickerMap.whenReady(() => {
+        mapPickerMap.invalidateSize();
+        renderMapPosition();
+      });
     }
 
     function renderPartners(items) {
@@ -379,6 +475,9 @@
       document.getElementById('nexus_points').value = partner.nexus_points;
       document.getElementById('map_x').value = partner.map_x ?? '';
       document.getElementById('map_y').value = partner.map_y ?? '';
+      if (mapPickerMap && partner.map_x !== null && partner.map_y !== null) {
+        mapPickerMap.panTo(mapPercentToLatLng(partner.map_x, partner.map_y));
+      }
       renderMapPosition();
       document.getElementById('display_order').value = partner.display_order;
       document.getElementById('published').checked = partner.published;
@@ -469,31 +568,6 @@
     imageFileInput.addEventListener('change', renderImagePreview);
     imageUrlInput.addEventListener('input', renderImagePreview);
     cancelEdit.addEventListener('click', resetForm);
-    mapPicker.addEventListener('pointerdown', event => {
-      event.preventDefault();
-      draggingMapPin = true;
-      mapPicker.setPointerCapture(event.pointerId);
-      setMapPosition(event);
-    });
-    mapPicker.addEventListener('pointermove', event => {
-      if (draggingMapPin) setMapPosition(event);
-    });
-    mapPicker.addEventListener('pointerup', () => { draggingMapPin = false; });
-    mapPicker.addEventListener('pointercancel', () => { draggingMapPin = false; });
-    mapPicker.addEventListener('keydown', event => {
-      const step = event.shiftKey ? 5 : 1;
-      let x = mapXInput.value === '' ? 50 : Number(mapXInput.value);
-      let y = mapYInput.value === '' ? 50 : Number(mapYInput.value);
-      if (event.key === 'ArrowLeft') x -= step;
-      else if (event.key === 'ArrowRight') x += step;
-      else if (event.key === 'ArrowUp') y -= step;
-      else if (event.key === 'ArrowDown') y += step;
-      else return;
-      event.preventDefault();
-      mapXInput.value = String(Math.min(100, Math.max(0, x)));
-      mapYInput.value = String(Math.min(100, Math.max(0, y)));
-      renderMapPosition();
-    });
     mapXInput.addEventListener('input', renderMapPosition);
     mapYInput.addEventListener('input', renderMapPosition);
     document.getElementById('new-button').addEventListener('click', () => {
