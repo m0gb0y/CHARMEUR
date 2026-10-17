@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import io
 import os
 import re
 import time
 import uuid
+import warnings
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import psycopg
 from flask import Flask, abort, jsonify, make_response, request, send_from_directory
+from PIL import Image, UnidentifiedImageError
 from psycopg.rows import dict_row
 from replit.object_storage import Client
 
@@ -47,6 +50,11 @@ PARTNER_IMAGE_TYPES = {
         ),
     ),
 }
+PARTNER_IMAGE_FORMATS = {
+    "jpg": "JPEG",
+    "png": "PNG",
+    "webp": "WEBP",
+}
 ALLOWED_CATEGORIES = {
     "hair", "grooming", "fashion", "photo", "wellness",
     "whitening", "clinic", "lesson",
@@ -75,6 +83,32 @@ def db_connection():
 
 def app_storage_client():
     return Client(bucket_id=os.environ.get("PARTNER_IMAGE_BUCKET_ID"))
+
+
+def is_decodable_partner_image(contents, extension):
+    expected_format = PARTNER_IMAGE_FORMATS[extension]
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(contents)) as image:
+                if image.format != expected_format:
+                    return False
+                image.verify()
+
+            with Image.open(io.BytesIO(contents)) as image:
+                if image.format != expected_format:
+                    return False
+                image.load()
+    except (
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+        OSError,
+        SyntaxError,
+        UnidentifiedImageError,
+        ValueError,
+    ):
+        return False
+    return True
 
 
 def delete_partner_image_if_unreferenced(image_url):
@@ -363,6 +397,8 @@ def upload_partner_image():
     )
     if extension is None:
         return jsonify(error="JPEG、PNG、WebP形式の画像を選択してください。"), 400
+    if not is_decodable_partner_image(contents, extension):
+        return jsonify(error="破損しているか、読み込めない画像です。"), 400
 
     filename = f"{uuid.uuid4().hex}.{extension}"
     try:

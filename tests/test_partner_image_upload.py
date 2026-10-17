@@ -5,23 +5,43 @@ import unittest
 from unittest.mock import patch
 
 import server
+from PIL import Image
 
 
 def valid_image_bytes(extension):
-    if extension == "jpg":
-        return b"\xff\xd8\xffpartner-image\xff\xd9"
-    if extension == "png":
-        return (
-            b"\x89PNG\r\n\x1a\n"
-            + b"\x00\x00\x00\rIHDR"
-            + b"\x00" * 13
-            + b"IEND"
-            + b"\x00" * 4
+    image_format = {"jpg": "JPEG", "png": "PNG", "webp": "WEBP"}.get(extension)
+    if image_format is None:
+        raise AssertionError(f"Unsupported test image extension: {extension}")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (2, 2), color=(30, 90, 150)).save(
+        image_buffer, format=image_format
+    )
+    return image_buffer.getvalue()
+
+
+def jpeg_bytes_of_exact_size(size):
+    contents = valid_image_bytes("jpg")
+    padding_size = size - len(contents)
+    if padding_size < 0:
+        raise AssertionError("Target size is smaller than the JPEG fixture")
+
+    segment_count = (padding_size + 65536) // 65537
+    segments = []
+    for index in range(segment_count):
+        segment_size = padding_size // segment_count
+        if index < padding_size % segment_count:
+            segment_size += 1
+        if segment_size < 4 or segment_size > 65537:
+            raise AssertionError("Unable to pad JPEG to the requested size")
+        payload_size = segment_size - 4
+        segments.append(
+            b"\xff\xfe"
+            + (payload_size + 2).to_bytes(2, "big")
+            + b"x" * payload_size
         )
-    if extension == "webp":
-        payload = b"WEBP" + b"\x00" * 18
-        return b"RIFF" + len(payload).to_bytes(4, "little") + payload
-    raise AssertionError(f"Unsupported test image extension: {extension}")
+
+    return contents[:-2] + b"".join(segments) + contents[-2:]
 
 
 class MemoryObjectStorage:
@@ -76,6 +96,26 @@ class PartnerImageUploadTests(unittest.TestCase):
                 self.assertIn("JPEG、PNG、WebP", response.get_json()["error"])
                 self.assertEqual(self.storage.uploaded, [])
 
+    def test_corrupted_jpeg_png_and_webp_images_are_rejected_before_storage(self):
+        corrupted_png = bytearray(valid_image_bytes("png"))
+        corrupted_png[41] ^= 0xFF
+        invalid_images = (
+            ("broken.jpg", b"\xff\xd8\xffnot a decodable JPEG\xff\xd9"),
+            ("broken.png", bytes(corrupted_png)),
+            (
+                "broken.webp",
+                b"RIFF" + (22).to_bytes(4, "little") + b"WEBP" + b"\x00" * 18,
+            ),
+        )
+
+        for filename, contents in invalid_images:
+            with self.subTest(filename=filename):
+                response = self.upload(filename, contents)
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("破損", response.get_json()["error"])
+                self.assertEqual(self.storage.uploaded, [])
+
     def test_images_larger_than_five_megabytes_are_rejected(self):
         contents = (
             valid_image_bytes("jpg")
@@ -89,12 +129,7 @@ class PartnerImageUploadTests(unittest.TestCase):
         self.assertEqual(self.storage.uploaded, [])
 
     def test_image_exactly_five_megabytes_is_saved(self):
-        prefix = valid_image_bytes("jpg")[:-2]
-        contents = (
-            prefix
-            + b"x" * (server.MAX_PARTNER_IMAGE_BYTES - len(prefix) - 2)
-            + b"\xff\xd9"
-        )
+        contents = jpeg_bytes_of_exact_size(server.MAX_PARTNER_IMAGE_BYTES)
 
         response = self.upload("exact-limit.jpg", contents)
 
