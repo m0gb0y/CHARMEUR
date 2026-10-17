@@ -91,6 +91,20 @@ function makeMapHarness() {
       x: 60,
       y: 70,
     },
+    {
+      id: "same-location-partner-id",
+      marker: "03",
+      name: "栄の別パートナー",
+      cat: "hotel",
+      area: "名古屋市中区",
+      desc: "同じ座標にある提携先の詳細",
+      point: 180,
+      photo: "",
+      url: "https://example.com/same-location",
+      real: true,
+      x: 20,
+      y: 30,
+    },
   ];
   const sandbox = {
     PARTNERS: partners,
@@ -163,6 +177,38 @@ test("clicking each map pin opens the detail for the partner represented by that
   for (const pinId of pinIds) {
     sandbox.openModal(pinId);
     const partner = partners.find((entry) => entry.id === pinId);
+    assertModalMatchesPartner(elements, partner);
+  }
+});
+
+test("partners at the same coordinates have separate selectable pins", () => {
+  const { elements, partners, sandbox } = makeMapHarness();
+
+  sandbox.renderPins();
+
+  const pinAttributes = generatedPins(elements["map-pins"].innerHTML);
+  const pinIds = generatedPinIds(elements["map-pins"].innerHTML);
+  const overlappingPartners = partners.filter(
+    (partner) => partner.x === 20 && partner.y === 30,
+  );
+  const overlappingPins = overlappingPartners.map((partner) => {
+    const index = pinIds.indexOf(partner.id);
+    assert.notEqual(index, -1, `${partner.name} should have a map pin`);
+    return pinAttributes[index];
+  });
+  const transforms = overlappingPins.map(
+    (attributes) => attributes.match(/transform:([^;"]+)/)?.[1],
+  );
+
+  assert.equal(overlappingPins.length, 2);
+  assert.ok(
+    transforms.every(Boolean),
+    "pins sharing a location should each be offset from the exact same point",
+  );
+  assert.notEqual(transforms[0], transforms[1]);
+
+  for (const partner of overlappingPartners) {
+    sandbox.openModal(partner.id);
     assertModalMatchesPartner(elements, partner);
   }
 });

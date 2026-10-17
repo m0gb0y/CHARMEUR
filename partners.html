@@ -296,8 +296,34 @@ function renderPins() {
     `).join('');
   }
 
-  pinsDiv.innerHTML = PARTNERS.filter(p => p.real && p.x !== null && p.x !== undefined && p.y !== null && p.y !== undefined && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y))).map(p => `
-    <div class="map-pin" role="button" tabindex="0" aria-label="${escapePartnerHtml(p.name)}の詳細を表示" style="left:${Number(p.x)}%;top:${Number(p.y)}%;" onclick="openModal('${escapePartnerHtml(p.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){event.preventDefault();openModal('${escapePartnerHtml(p.id)}')}">
+  const mappedPartners = PARTNERS
+    .filter(p => p.real && p.x !== null && p.x !== undefined && p.y !== null && p.y !== undefined && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y)))
+    .map(p => ({ partner: p, x: Number(p.x), y: Number(p.y) }));
+  const locationGroups = new Map();
+  mappedPartners.forEach(pin => {
+    const key = `${pin.x},${pin.y}`;
+    if (!locationGroups.has(key)) locationGroups.set(key, []);
+    locationGroups.get(key).push(pin);
+  });
+
+  const pinOffsets = new Map();
+  locationGroups.forEach(group => {
+    if (group.length < 2) return;
+    const radius = Math.max(20, 16 / Math.sin(Math.PI / group.length));
+    group.forEach((pin, index) => {
+      const angle = -Math.PI / 2 + (2 * Math.PI * index / group.length);
+      pinOffsets.set(pin.partner.id, {
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius
+      });
+    });
+  });
+
+  pinsDiv.innerHTML = mappedPartners.map(({ partner: p, x, y }) => {
+    const offset = pinOffsets.get(p.id);
+    const position = `left:${x}%;top:${y}%;${offset ? `transform:translate(-50%,-50%) translate(${offset.x.toFixed(1)}px,${offset.y.toFixed(1)}px);` : ''}`;
+    return `
+    <div class="map-pin" role="button" tabindex="0" aria-label="${escapePartnerHtml(p.name)}の詳細を表示" style="${position}" onclick="openModal('${escapePartnerHtml(p.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){event.preventDefault();openModal('${escapePartnerHtml(p.id)}')}">
       <div class="map-pin-dot ${activeFilter !== 'all' && p.cat !== activeFilter ? 'dimmed' : ''}">${escapePartnerHtml(p.marker || p.id)}</div>
       <div class="pin-tooltip">
         <div class="pin-tooltip-name">${escapePartnerHtml(p.name)}</div>
@@ -305,7 +331,8 @@ function renderPins() {
         <div class="pin-tooltip-area">${escapePartnerHtml(p.area)}</div>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function filterPartners(cat, btn) {

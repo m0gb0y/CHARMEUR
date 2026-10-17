@@ -165,7 +165,8 @@ class PartnerMapCoordinateFlowTests(unittest.TestCase):
             html,
             re.compile(r"y:\s*partner\.map_y\s*\?\?\s*legacy\?\.y\s*\?\?\s*null"),
         )
-        self.assertIn("style=\"left:${Number(p.x)}%;top:${Number(p.y)}%;\"", html)
+        self.assertIn(".map(p => ({ partner: p, x: Number(p.x), y: Number(p.y) }))", html)
+        self.assertIn("const position = `left:${x}%;top:${y}%;", html)
 
 
 if __name__ == "__main__":
