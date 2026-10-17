@@ -105,6 +105,34 @@ function makeMapHarness() {
       x: 20,
       y: 30,
     },
+    {
+      id: "same-location-cafe-id",
+      marker: "04",
+      name: "栄のカフェ",
+      cat: "hotel",
+      area: "名古屋市中区",
+      desc: "カフェの詳細",
+      point: 90,
+      photo: "",
+      url: "https://example.com/sakae-cafe",
+      real: true,
+      x: 20,
+      y: 30,
+    },
+    {
+      id: "same-location-restaurant-id",
+      marker: "05",
+      name: "栄のレストラン",
+      cat: "hair",
+      area: "名古屋市中区",
+      desc: "レストランの詳細",
+      point: 210,
+      photo: "",
+      url: "https://example.com/sakae-restaurant",
+      real: true,
+      x: 20,
+      y: 30,
+    },
   ];
   const sandbox = {
     PARTNERS: partners,
@@ -181,7 +209,7 @@ test("clicking each map pin opens the detail for the partner represented by that
   }
 });
 
-test("partners at the same coordinates have separate selectable pins", () => {
+test("all partners at the same coordinates have separate clickable pins", () => {
   const { elements, partners, sandbox } = makeMapHarness();
 
   sandbox.renderPins();
@@ -200,25 +228,43 @@ test("partners at the same coordinates have separate selectable pins", () => {
     (attributes) => attributes.match(/transform:([^;"]+)/)?.[1],
   );
 
-  assert.equal(overlappingPins.length, 2);
+  assert.ok(
+    overlappingPins.length >= 3,
+    "the test should cover groups of at least three partners at one location",
+  );
   assert.ok(
     transforms.every(Boolean),
     "pins sharing a location should each be offset from the exact same point",
   );
-  assert.notEqual(transforms[0], transforms[1]);
+  assert.equal(
+    new Set(transforms).size,
+    overlappingPins.length,
+    "each partner at the same location should have a distinct offset",
+  );
 
-  for (const partner of overlappingPartners) {
-    sandbox.openModal(partner.id);
+  for (const [index, partner] of partners.entries()) {
+    if (!overlappingPartners.includes(partner)) continue;
+    const clickHandler = pinAttributes[index].match(/onclick="([^"]+)"/)?.[1];
+    assert.ok(clickHandler, `${partner.name} should have a click handler`);
+    vm.runInContext(clickHandler, sandbox);
     assertModalMatchesPartner(elements, partner);
+    elements["modal-overlay"].classList.remove("open");
   }
 });
 
-test("map pins are keyboard-focusable and Enter or Space opens the matching detail", () => {
+test("each pin in a group of three or more at one location opens its detail by keyboard", () => {
   const { elements, partners, sandbox } = makeMapHarness();
 
   sandbox.renderPins();
   const pins = generatedPins(elements["map-pins"].innerHTML);
   assert.equal(pins.length, partners.length);
+  const overlappingPartners = partners.filter(
+    (partner) => partner.x === 20 && partner.y === 30,
+  );
+  assert.ok(
+    overlappingPartners.length >= 3,
+    "the keyboard test should cover at least three partners at one location",
+  );
 
   for (const [index, pinAttributes] of pins.entries()) {
     const partner = partners[index];
