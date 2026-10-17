@@ -19,6 +19,7 @@ from flask import Flask, abort, jsonify, make_response, request, send_from_direc
 from PIL import Image, UnidentifiedImageError
 from psycopg.rows import dict_row
 from replit.object_storage import Client
+from werkzeug.exceptions import RequestEntityTooLarge
 
 
 ROOT = Path(__file__).resolve().parent
@@ -72,6 +73,13 @@ PUBLIC_PAGES = {
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_PARTNER_IMAGE_BYTES + 64 * 1024
 login_attempts: dict[str, list[float]] = {}
+
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_request_entity_too_large(error):
+    if request.method == "POST" and request.path == "/api/admin/uploads/partner-image":
+        return jsonify(error="画像は5MB以下のファイルを選択してください。"), 413
+    return error
 
 
 def db_connection():

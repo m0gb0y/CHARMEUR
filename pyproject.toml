@@ -9,4 +9,5 @@ dependencies = [
     "pillow>=13.0.0",
     "psycopg[binary]>=3.3.6",
     "replit-object-storage>=1.0.2",
+    "werkzeug>=3.1.9",
 ]

@@ -897,6 +897,7 @@ dependencies = [
     { name = "pillow" },
     { name = "psycopg", extra = ["binary"] },
     { name = "replit-object-storage" },
+    { name = "werkzeug" },
 ]
 
 [package.metadata]
@@ -906,6 +907,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=13.0.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.6" },
     { name = "replit-object-storage", specifier = ">=1.0.2" },
+    { name = "werkzeug", specifier = ">=3.1.9" },
 ]
 
 [[package]]

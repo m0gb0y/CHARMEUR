@@ -128,6 +128,16 @@ class PartnerImageUploadTests(unittest.TestCase):
         self.assertIn("5MB以下", response.get_json()["error"])
         self.assertEqual(self.storage.uploaded, [])
 
+    def test_upload_far_over_request_limit_returns_json_size_error(self):
+        contents = b"x" * (server.app.config["MAX_CONTENT_LENGTH"] + 1024 * 1024)
+
+        response = self.upload("very-large.jpg", contents)
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.mimetype, "application/json")
+        self.assertIn("5MB以下", response.get_json()["error"])
+        self.assertEqual(self.storage.uploaded, [])
+
     def test_image_exactly_five_megabytes_is_saved(self):
         contents = jpeg_bytes_of_exact_size(server.MAX_PARTNER_IMAGE_BYTES)
 
