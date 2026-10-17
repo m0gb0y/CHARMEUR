@@ -40,6 +40,8 @@
     .map-picker-surface:focus-visible { outline:2px solid var(--gold); outline-offset:-4px; }
     .map-picker-marker { position:absolute; z-index:2; display:none; width:34px; height:34px; align-items:center; justify-content:center; transform:translate(-50%,-50%); border:2px solid var(--cream); border-radius:50%; background:var(--gold); color:var(--black); box-shadow:0 2px 14px rgba(0,0,0,.65); font-size:9px; font-weight:600; pointer-events:none; }
     .map-position-status { margin:0; color:var(--muted); font-size:11px; }
+    .image-preview { display:flex; align-items:center; justify-content:center; min-height:120px; padding:10px; border:1px solid var(--border); background:#0f0f12; }
+    .image-preview img { display:block; max-width:100%; max-height:240px; object-fit:contain; }
     .check-row { display:flex; flex-wrap:wrap; align-items:center; gap:18px; }
     .check-row label { display:flex; align-items:center; gap:8px; color:var(--cream); font-size:13px; letter-spacing:0; }
     .check-row input { width:18px; min-height:18px; accent-color:var(--gold); }
@@ -144,6 +146,10 @@
               <label for="image-file">画像ファイルをアップロード</label>
               <input id="image-file" name="image" type="file" accept="image/jpeg,image/png,image/webp">
               <span class="map-position-status">JPEG・PNG・WebP、5MB以下。ファイルを選ぶと画像URLより優先されます。</span>
+              <div id="image-preview" class="image-preview hidden">
+                <img id="image-preview-image" alt="提携先画像のプレビュー">
+              </div>
+              <p id="image-preview-status" class="map-position-status" aria-live="polite">登録画像はここに表示されます。ファイルを選ぶと保存前に確認できます。</p>
             </div>
             <div class="field">
               <label for="nexus_points">Nexus Point 上限</label>
@@ -216,6 +222,11 @@
     const mapXInput = document.getElementById('map_x');
     const mapYInput = document.getElementById('map_y');
     const imageFileInput = document.getElementById('image-file');
+    const imageUrlInput = document.getElementById('image_url');
+    const imagePreview = document.getElementById('image-preview');
+    const imagePreviewImage = document.getElementById('image-preview-image');
+    const imagePreviewStatus = document.getElementById('image-preview-status');
+    let imagePreviewObjectUrl = '';
     let draggingMapPin = false;
 
     async function api(path, options = {}) {
@@ -243,6 +254,7 @@
       document.getElementById('partner-id').value = '';
       document.getElementById('nexus_points').value = '0';
       document.getElementById('display_order').value = '0';
+      renderImagePreview();
       renderMapPosition();
       document.getElementById('form-title').textContent = '提携先を追加';
       document.getElementById('save-button').textContent = '保存';
@@ -252,6 +264,31 @@
     }
 
     function value(id) { return document.getElementById(id).value.trim(); }
+
+    function renderImagePreview() {
+      if (imagePreviewObjectUrl) {
+        URL.revokeObjectURL(imagePreviewObjectUrl);
+        imagePreviewObjectUrl = '';
+      }
+
+      const selectedFile = imageFileInput.files[0];
+      const imageUrl = selectedFile
+        ? (imagePreviewObjectUrl = URL.createObjectURL(selectedFile))
+        : imageUrlInput.value.trim();
+
+      if (!imageUrl) {
+        imagePreviewImage.removeAttribute('src');
+        imagePreview.classList.add('hidden');
+        imagePreviewStatus.textContent = '登録画像はここに表示されます。ファイルを選ぶと保存前に確認できます。';
+        return;
+      }
+
+      imagePreviewImage.src = imageUrl;
+      imagePreview.classList.remove('hidden');
+      imagePreviewStatus.textContent = selectedFile
+        ? '選択した画像をプレビュー中です。保存後に登録されます。'
+        : '現在の登録画像を表示しています。';
+    }
 
     function renderMapPosition() {
       const x = Number(mapXInput.value);
@@ -336,8 +373,9 @@
       document.getElementById('area').value = partner.area;
       document.getElementById('description').value = partner.description;
       document.getElementById('website_url').value = partner.website_url;
-      document.getElementById('image_url').value = partner.image_url;
+      imageUrlInput.value = partner.image_url;
       imageFileInput.value = '';
+      renderImagePreview();
       document.getElementById('nexus_points').value = partner.nexus_points;
       document.getElementById('map_x').value = partner.map_x ?? '';
       document.getElementById('map_y').value = partner.map_y ?? '';
@@ -396,8 +434,9 @@
             method: 'POST',
             body: upload
           });
-          document.getElementById('image_url').value = result.image_url;
+          imageUrlInput.value = result.image_url;
           imageFileInput.value = '';
+          renderImagePreview();
         }
         const payload = {
           name: value('name'),
@@ -427,6 +466,8 @@
       }
     });
 
+    imageFileInput.addEventListener('change', renderImagePreview);
+    imageUrlInput.addEventListener('input', renderImagePreview);
     cancelEdit.addEventListener('click', resetForm);
     mapPicker.addEventListener('pointerdown', event => {
       event.preventDefault();
