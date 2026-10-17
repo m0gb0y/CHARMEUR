@@ -257,6 +257,15 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 
 .coin-mechanic { background: var(--dark); border: 1px solid var(--border); padding: 36px 28px; margin-bottom: 40px; }
 .coin-mechanic-title { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+.coin-exchange { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 16px; margin-bottom: 28px; padding: 20px; background: rgba(184,150,90,0.06); border: 1px solid var(--border); }
+.coin-exchange-side { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; }
+.coin-exchange-icon { font-size: 24px; line-height: 1; }
+.coin-exchange-amount { font-family: 'Inter',sans-serif; font-size: clamp(15px,2.2vw,22px); font-weight: 600; color: var(--gold); font-variant-numeric: tabular-nums; letter-spacing: 0; white-space: nowrap; }
+.coin-exchange-reward .coin-exchange-amount { color: var(--cream); }
+.coin-exchange-caption { font-size: 11px; color: var(--muted); line-height: 1.55; text-wrap: balance; }
+.coin-exchange-equals { font-size: 22px; color: var(--gold-dim); font-weight: 300; }
+.btn-partners { display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 14px 28px; border: 1px solid var(--gold-dim); color: var(--gold); font-size: 11px; letter-spacing: 0.16em; text-decoration: none; transition: background 0.2s,color 0.2s,border-color 0.2s; }
+.btn-partners:hover { background: var(--gold); border-color: var(--gold); color: var(--black); }
 .coin-rate { display: flex; align-items: center; gap: 0; margin-bottom: 28px; flex-wrap: wrap; gap: 0; }
 .coin-rate-item { text-align: center; flex: 1; padding: 20px 12px; }
 .coin-rate-item + .coin-rate-item { border-left: 1px solid var(--border); }
@@ -278,6 +287,14 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 .coin-win-icon { font-size: 24px; flex-shrink: 0; line-height: 1; margin-top: 2px; }
 .coin-win-who { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
 .coin-win-text { font-size: 12.5px; color: var(--muted); line-height: 1.8; }
+@media (max-width: 480px) {
+  .coin-mechanic { padding: 28px 16px; }
+  .coin-exchange { gap: 8px; padding: 16px 12px; }
+  .coin-exchange-amount { font-size: clamp(11px,3.4vw,16px); }
+  .coin-exchange-caption { font-size: clamp(9px,2.7vw,10px); }
+  .coin-exchange-side:first-child .coin-exchange-caption { white-space: nowrap; }
+  .coin-exchange-equals { font-size: 18px; }
+}
 
 /* ═══ AURA EFFECTS ═══ */
 
@@ -378,7 +395,7 @@ body > *:not(#aura-canvas):not(nav) { position: relative; z-index: 1; }
     <a class="drawer-link" href="#charmeur" onclick="closeDrawer()"><span>05</span>モテ偏差値診断</a>
     <a class="drawer-link" href="#voices" onclick="closeDrawer()"><span>06</span>お客様の声</a>
     <a class="drawer-link" href="#about" onclick="closeDrawer()"><span>07</span>About</a>
-    <a class="drawer-link" href="#partners" onclick="closeDrawer()"><span>08</span>提携サロン</a>
+    <a class="drawer-link" href="/partners.html" onclick="closeDrawer()"><span>08</span>提携サロン</a>
     <a class="drawer-cta" href="https://lin.ee/uvuyKK4" target="_blank">💬 無料相談はこちら</a>
   </div>
 </div>
@@ -753,19 +770,19 @@ body > *:not(#aura-canvas):not(nav) { position: relative; z-index: 1; }
       <!-- Mechanism -->
       <div class="coin-mechanic">
         <p class="coin-mechanic-title">仕組み</p>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px;padding:20px;background:rgba(184,150,90,0.06);border:1px solid var(--border);">
-          <div style="font-size:28px;line-height:1;flex-shrink:0;">🪙</div>
-          <div style="flex:1;">
-            <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:600;color:var(--gold);font-variant-numeric:tabular-nums;letter-spacing:0;">1 Nexus Point</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px;">コース入会で付与</div>
+        <div class="coin-exchange">
+          <div class="coin-exchange-side">
+            <span class="coin-exchange-icon" aria-hidden="true">🪙</span>
+            <div class="coin-exchange-amount">1 Nexus Point</div>
+            <div class="coin-exchange-caption">コース入会で付与</div>
           </div>
-          <div style="font-size:22px;color:var(--gold-dim);font-weight:300;flex-shrink:0;">=</div>
-          <div style="flex:1;text-align:right;">
-            <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:600;color:var(--cream);font-variant-numeric:tabular-nums;letter-spacing:0;">1円引き</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px;">提携サロンで割引として使用</div>
+          <div class="coin-exchange-equals" aria-hidden="true">=</div>
+          <div class="coin-exchange-side coin-exchange-reward">
+            <div class="coin-exchange-amount">1円引き</div>
+            <div class="coin-exchange-caption">提携サロンで割引として使用</div>
           </div>
         </div>
-        <p class="coin-note">※ 店舗ごとに1回あたりの上限使用Nexus Point数が設定されています。各サロンのページでご確認ください。Nexus Pointの有効期限・譲渡はできません。</p>
+        <p class="coin-note">※ 店舗ごとに1回あたりの上限使用Nexus Point数が設定されています。上限は<a href="/partners.html" style="color:var(--gold);text-decoration:underline;text-underline-offset:3px;">提携先一覧</a>でご確認ください。Nexus Pointの有効期限・譲渡はできません。</p>
       </div>
 
       <!-- Coin per course -->
@@ -964,8 +981,7 @@ body > *:not(#aura-canvas):not(nav) { position: relative; z-index: 1; }
         共に変革を担う、<em style="font-style:italic;color:var(--gold);">提携サロン。</em>
       </h2>
       <p style="font-size:13px;color:var(--muted);max-width:400px;line-height:1.9;">美容・スタイリング・身だしなみの各分野で選び抜いたプロフェッショナルたちと連携し、あなたの変革を支える。</p>
-      <p id="partner-empty" style="font-size:11px;color:#7A7570;border:1px dashed rgba(184,150,90,0.3);padding:14px 24px;">提携先情報を読み込み中…</p>
-      <div id="partner-cards" style="width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px;text-align:left;"></div>
+      <a class="btn-partners" href="/partners.html">提携先一覧を見る <span aria-hidden="true">→</span></a>
     </div>
   </div>
 </section>
@@ -1115,64 +1131,6 @@ function toggleDrawer() {
     o.classList.add('open');
   }
 }
-</script>
-<script>
-  (async function loadPartnerCards() {
-    const list = document.getElementById('partner-cards');
-    const empty = document.getElementById('partner-empty');
-    try {
-      const response = await fetch('/api/partners', { cache: 'no-store' });
-      if (!response.ok) throw new Error('提携先情報を取得できませんでした。');
-      const data = await response.json();
-      list.replaceChildren();
-      for (const partner of data.partners) {
-        const card = document.createElement('article');
-        card.style.cssText = 'background:var(--dark);border:1px solid var(--border);padding:20px;min-width:0;';
-        if (partner.image_url) {
-          const image = document.createElement('img');
-          image.src = partner.image_url;
-          image.alt = partner.name;
-          image.loading = 'lazy';
-          image.style.cssText = 'width:100%;height:170px;object-fit:cover;margin-bottom:12px;';
-          card.append(image);
-        }
-        const category = document.createElement('p');
-        category.textContent = ({hair:'美容院・ヘア',grooming:'身だしなみ',fashion:'ファッション',photo:'フォト撮影',wellness:'ウェルネス',whitening:'ホワイトニング',clinic:'クリニック',lesson:'講座'})[partner.category] || partner.category;
-        category.style.cssText = 'color:var(--gold);font-size:9px;letter-spacing:.18em;margin:0 0 6px;';
-        const name = document.createElement('h3');
-        name.textContent = partner.name;
-        name.style.cssText = 'font-family:"Cormorant Garamond",serif;font-size:22px;font-weight:400;margin:0 0 4px;color:var(--cream);';
-        const area = document.createElement('p');
-        area.textContent = partner.area ? '📍 ' + partner.area : '';
-        area.style.cssText = 'color:var(--muted);font-size:11px;margin:0 0 8px;';
-        const description = document.createElement('p');
-        description.textContent = partner.description;
-        description.style.cssText = 'color:var(--muted);font-size:12px;line-height:1.8;margin:0;';
-        card.append(category, name, area, description);
-        if (partner.nexus_points > 0) {
-          const points = document.createElement('p');
-          points.textContent = '上限 ' + partner.nexus_points.toLocaleString() + ' Nexus Point / 回';
-          points.style.cssText = 'color:var(--gold);font-size:10px;margin:12px 0 0;';
-          card.append(points);
-        }
-        if (partner.website_url) {
-          const link = document.createElement('a');
-          link.href = partner.website_url;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          link.textContent = 'サイトを見る →';
-          link.style.cssText = 'display:inline-block;margin-top:12px;color:var(--gold);font-size:10px;text-decoration:none;border-bottom:1px solid var(--border);';
-          card.append(link);
-        }
-        list.append(card);
-      }
-      empty.textContent = data.partners.length ? '' : '提携サロンは準備中です';
-      empty.style.display = data.partners.length ? 'none' : 'block';
-    } catch (error) {
-      empty.textContent = '提携先情報を読み込めませんでした。時間をおいて再度ご確認ください。';
-      empty.style.display = 'block';
-    }
-  })();
 </script>
 </body>
 </html>
