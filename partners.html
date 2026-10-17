@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -62,7 +63,7 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .map-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(28px, 6vw, 44px); font-weight: 300; margin-bottom: 8px; }
 .map-title em { font-style: italic; color: var(--gold); }
 .map-sub { font-size: 13px; color: var(--muted); margin-bottom: 40px; }
-.map-wrapper { position: relative; background: var(--slate); border: 1px solid var(--border); overflow: hidden; }
+.map-wrapper { position: relative; isolation: isolate; z-index: 0; background: var(--slate); border: 1px solid var(--border); overflow: hidden; }
 .partner-map { width: 100%; height: 420px; background: var(--slate); z-index: 1; }
 .partner-map .leaflet-tile { filter: grayscale(30%) brightness(.88); }
 .partner-map .leaflet-control-attribution { background: rgba(12,12,14,.82); color: var(--muted); font-size: 10px; }
@@ -70,9 +71,11 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .partner-map .partner-pin-tooltip { background: var(--dark); border: 1px solid var(--border); border-radius: 0; color: var(--cream); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .partner-map .partner-pin-tooltip::before { border-top-color: var(--border); }
 .partner-map-icon { background: transparent; border: 0; }
+.partner-cluster-icon { background: transparent; border: 0; }
+.partner-cluster-icon span { display: flex; width: 28px; height: 28px; align-items: center; justify-content: center; border: 2px solid rgba(184,150,90,0.55); border-radius: 50%; background: var(--dark); color: var(--gold); box-shadow: 0 0 12px rgba(184,150,90,0.35); font: 600 10px 'Inter',sans-serif; }
 .partner-map-icon:focus-visible { outline: 2px solid var(--cream); outline-offset: 3px; border-radius: 50%; }
 .partner-map-icon:hover .map-pin-dot, .partner-map-icon:focus-visible .map-pin-dot { transform: scale(1.25); box-shadow: 0 0 20px rgba(184,150,90,0.5); }
-.map-legend { position: absolute; bottom: 12px; left: 12px; z-index: 800; max-width: calc(100% - 24px); max-height: 45%; overflow-y: auto; background: rgba(12,12,14,0.9); border: 1px solid var(--border); padding: 10px 14px; backdrop-filter: blur(4px); }
+.map-legend { margin-top: 12px; background: rgba(12,12,14,0.9); border: 1px solid var(--border); padding: 10px 14px; }
 .map-external-link { position: absolute; top: 12px; right: 12px; z-index: 800; padding: 8px 12px; background: rgba(240,237,232,.94); color: #315b88; font-size: 12px; text-decoration: none; border-radius: 2px; }
 .map-external-link:hover { background: #fff; }
 
@@ -91,9 +94,10 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .pin-tooltip-area { font-size: 10px; color: var(--muted); margin-top: 2px; }
 
 /* Detail modal */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: none; align-items: center; justify-content: center; padding: 24px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1200; display: none; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; overscroll-behavior: contain; }
 .modal-overlay.open { display: flex; }
-.modal { background: var(--dark); border: 1px solid var(--border); padding: 36px 28px; max-width: 420px; width: 100%; position: relative; }
+.modal { box-sizing: border-box; background: var(--dark); border: 1px solid var(--border); padding: 36px 28px; max-width: 420px; width: 100%; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; position: relative; }
+html.modal-open { overflow: hidden; }
 .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; line-height: 1; }
 .modal-close:hover { color: var(--cream); }
 .modal-letter { font-family: 'Cormorant Garamond', serif; font-size: 48px; font-weight: 300; color: var(--gold); opacity: 0.4; line-height: 1; margin-bottom: 4px; }
@@ -175,10 +179,10 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
       <div class="map-wrapper">
         <div id="partner-map" class="partner-map" role="region" aria-label="提携先の地図"></div>
         <a class="map-external-link" href="https://www.openstreetmap.org/#map=12/35.18/136.90" target="_blank" rel="noopener noreferrer">地図で開く ↗</a>
-        <div class="map-legend">
-          <p style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">Partner Locations</p>
-          <div style="display:flex;flex-direction:column;gap:5px;" id="map-legend"></div>
-        </div>
+      </div>
+      <div class="map-legend">
+        <p style="font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:8px;">Partner Locations</p>
+        <div style="display:flex;flex-direction:column;gap:5px;" id="map-legend"></div>
       </div>
     </div>
   </div>
@@ -218,6 +222,7 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 </footer>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
 const CATEGORIES = {
   whitening: 'ホワイトニング',
@@ -270,7 +275,18 @@ function ensurePartnerMap() {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
   }).addTo(partnerMap);
-  partnerPinLayer = L.layerGroup().addTo(partnerMap);
+  partnerPinLayer = L.markerClusterGroup({
+    maxClusterRadius: 28,
+    showCoverageOnHover: false,
+    spiderfyOnMaxZoom: true,
+    zoomToBoundsOnClick: true,
+    iconCreateFunction: cluster => L.divIcon({
+      className: 'partner-cluster-icon',
+      html: `<span aria-label="${cluster.getChildCount()}件の提携先。タップして地図を拡大">${cluster.getChildCount()}</span>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
+    })
+  }).addTo(partnerMap);
   return true;
 }
 
@@ -391,6 +407,9 @@ function filterPartners(cat, btn) {
   renderPins();
 }
 
+let modalScrollY = 0;
+let modalBodyStyles = null;
+
 function openModal(id) {
   const p = PARTNERS.find(x => x.id === id);
   if (!p) return;
@@ -422,12 +441,40 @@ function openModal(id) {
     cs.style.display = 'none';
     btn.href = p.url;
   }
-  document.getElementById('modal-overlay').classList.add('open');
+  const overlay = document.getElementById('modal-overlay');
+  if (!overlay.classList.contains('open')) {
+    const body = document.body;
+    modalScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    modalBodyStyles = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow
+    };
+    body.style.position = 'fixed';
+    body.style.top = `-${modalScrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    document.documentElement.classList.add('modal-open');
+  }
+  overlay.classList.add('open');
 }
 
 function closeModal(e) {
-  if (!e || e.target === document.getElementById('modal-overlay')) {
-    document.getElementById('modal-overlay').classList.remove('open');
+  const overlay = document.getElementById('modal-overlay');
+  if (!e || e.target === overlay) {
+    overlay.classList.remove('open');
+    document.documentElement.classList.remove('modal-open');
+    if (modalBodyStyles) {
+      const body = document.body;
+      Object.assign(body.style, modalBodyStyles);
+      modalBodyStyles = null;
+      window.scrollTo(0, modalScrollY);
+    }
   }
 }
 
