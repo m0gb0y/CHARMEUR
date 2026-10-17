@@ -146,6 +146,16 @@ class PartnerImageCleanupTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.storage.deleted, [])
 
+    def test_saving_without_replacing_image_keeps_existing_url(self):
+        response = self.update_partner(self.OLD_IMAGE)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json()["partner"]["image_url"], self.OLD_IMAGE)
+        self.assertEqual(
+            self.database.partners[self.partner_id]["image_url"], self.OLD_IMAGE
+        )
+        self.assertEqual(self.storage.deleted, [])
+
     def test_deleting_partner_deletes_unshared_managed_image(self):
         response = self.client.delete(f"/api/admin/partners/{self.partner_id}")
 
