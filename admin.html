@@ -23,6 +23,9 @@
     h1 em { color:var(--gold); font-style:italic; }
     .intro { color:var(--muted); margin:8px 0 28px; }
     .panel { background:var(--dark); border:1px solid var(--border); padding:clamp(20px,4vw,32px); }
+    .category-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+    .category-chip { display:inline-flex; align-items:center; min-height:32px; padding:4px 10px; border:1px solid var(--border); color:var(--cream); font-size:11px; }
+    .category-help { color:var(--muted); font-size:11px; margin:0; }
     .login-wrap { max-width:480px; margin:8vh auto; }
     .login-wrap h2, .section-heading { margin:0 0 16px; font:400 24px Cormorant Garamond,serif; }
     .eyebrow { color:var(--gold); font-size:10px; letter-spacing:.25em; text-transform:uppercase; }
@@ -105,7 +108,23 @@
     <section id="dashboard" class="hidden">
       <p class="eyebrow">Partner administration</p>
       <h1>提携先<em>管理</em></h1>
-        <p class="intro">公開にすると、提携先一覧ページに反映されます。</p>
+      <p class="intro">公開にすると、提携先一覧ページに反映されます。</p>
+
+      <section class="panel" aria-labelledby="category-title" style="margin-bottom:20px;">
+        <h2 id="category-title" class="section-heading">ジャンル管理</h2>
+        <p class="category-help">新しいジャンルを追加すると、提携先の登録・編集と公開ページの絞り込みに使えるようになります。</p>
+        <form id="category-form">
+          <div class="field">
+            <label for="new-category-label">追加するジャンル名</label>
+            <input id="new-category-label" maxlength="40" required placeholder="例：ネイル">
+          </div>
+          <div class="form-actions">
+            <button id="add-category-button" type="submit">ジャンルを追加</button>
+          </div>
+          <p id="category-message" class="message" role="status" aria-live="polite"></p>
+        </form>
+        <div id="category-list" class="category-chips" aria-label="登録済みジャンル"></div>
+      </section>
 
       <section class="panel" aria-labelledby="form-title">
         <h2 id="form-title" class="section-heading">提携先を追加</h2>
@@ -121,6 +140,7 @@
               <select id="category" name="category" required>
                 <option value="hair">美容院・ヘア</option>
                 <option value="grooming">身だしなみ</option>
+                <option value="eyebrow">眉毛</option>
                 <option value="fashion">ファッション</option>
                 <option value="photo">フォト撮影</option>
                 <option value="wellness">ウェルネス</option>
@@ -157,6 +177,11 @@
             <div class="field">
               <label for="nexus_points">Nexus Point 上限</label>
               <input id="nexus_points" name="nexus_points" type="number" min="0" max="1000000" step="1" value="0">
+            </div>
+            <div class="field full">
+              <label for="point_courses">Nexus Point 利用可能コース（任意）</label>
+              <textarea id="point_courses" name="point_courses" maxlength="2000" placeholder="例：眉デザインコース&#10;初回カウンセリング付きプラン"></textarea>
+              <p class="category-help">コース名を手動で記入できます。改行して複数のコースも入力できます。</p>
             </div>
             <div class="field">
               <label for="map_x">地図上の横位置（任意・0〜100）</label>
@@ -200,10 +225,10 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const labels = {
+    let labels = {
       hair: '美容院・ヘア', grooming: '身だしなみ', fashion: 'ファッション',
       photo: 'フォト撮影', wellness: 'ウェルネス', whitening: 'ホワイトニング',
-      clinic: 'クリニック', lesson: '講座'
+      eyebrow: '眉毛', clinic: 'クリニック', lesson: '講座'
     };
     const loginPanel = document.getElementById('login-panel');
     const dashboard = document.getElementById('dashboard');
@@ -211,7 +236,11 @@
     const formMessage = document.getElementById('form-message');
     const listMessage = document.getElementById('list-message');
     const form = document.getElementById('partner-form');
+    const categoryForm = document.getElementById('category-form');
     const partnerList = document.getElementById('partner-list');
+    const categoryList = document.getElementById('category-list');
+    const categoryMessage = document.getElementById('category-message');
+    const categorySelect = document.getElementById('category');
     const logoutButton = document.getElementById('logout-button');
     const cancelEdit = document.getElementById('cancel-edit');
     const mapPicker = document.getElementById('map-picker-surface');
@@ -242,12 +271,13 @@
       return data;
     }
 
-    function showDashboard() {
+    async function showDashboard() {
       loginPanel.classList.add('hidden');
       dashboard.classList.remove('hidden');
       logoutButton.classList.remove('hidden');
       initMapPicker();
-      loadPartners();
+      await loadCategories();
+      await loadPartners();
     }
 
     function resetForm() {
@@ -265,6 +295,40 @@
     }
 
     function value(id) { return document.getElementById(id).value.trim(); }
+
+    function renderCategories(categories) {
+      labels = Object.fromEntries(categories.map(category => [category.id, category.label]));
+      const selected = categorySelect.value;
+      categorySelect.replaceChildren();
+      categoryList.replaceChildren();
+      for (const category of categories) {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.label;
+        categorySelect.append(option);
+
+        const chip = document.createElement('span');
+        chip.className = 'category-chip';
+        chip.textContent = category.label;
+        categoryList.append(chip);
+      }
+      if (categories.some(category => category.id === selected)) {
+        categorySelect.value = selected;
+      }
+    }
+
+    async function loadCategories() {
+      categoryMessage.textContent = 'ジャンルを読み込み中…';
+      categoryMessage.classList.remove('error');
+      try {
+        const data = await api('/api/admin/categories');
+        renderCategories(data.categories);
+        categoryMessage.textContent = '';
+      } catch (error) {
+        categoryMessage.textContent = error.message;
+        categoryMessage.classList.add('error');
+      }
+    }
 
     function renderImagePreview() {
       if (imagePreviewObjectUrl) {
@@ -473,6 +537,7 @@
       imageFileInput.value = '';
       renderImagePreview();
       document.getElementById('nexus_points').value = partner.nexus_points;
+      document.getElementById('point_courses').value = partner.point_courses || '';
       document.getElementById('map_x').value = partner.map_x ?? '';
       document.getElementById('map_y').value = partner.map_y ?? '';
       if (mapPickerMap && partner.map_x !== null && partner.map_y !== null) {
@@ -545,6 +610,7 @@
           website_url: value('website_url'),
           image_url: value('image_url'),
           nexus_points: Number(value('nexus_points') || 0),
+          point_courses: value('point_courses'),
           map_x: value('map_x') || null,
           map_y: value('map_y') || null,
           display_order: Number(value('display_order') || 0),
@@ -574,6 +640,28 @@
       resetForm();
       document.getElementById('name').focus();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    categoryForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = document.getElementById('add-category-button');
+      button.disabled = true;
+      categoryMessage.textContent = 'ジャンルを追加中…';
+      categoryMessage.classList.remove('error');
+      try {
+        const data = await api('/api/admin/categories', {
+          method: 'POST',
+          body: JSON.stringify({ label: value('new-category-label') })
+        });
+        renderCategories(data.categories);
+        categorySelect.value = data.category.id;
+        document.getElementById('new-category-label').value = '';
+        categoryMessage.textContent = `「${data.category.label}」を追加しました。`;
+      } catch (error) {
+        categoryMessage.textContent = error.message;
+        categoryMessage.classList.add('error');
+      } finally {
+        button.disabled = false;
+      }
     });
     logoutButton.addEventListener('click', async () => {
       try { await api('/api/admin/logout', { method: 'POST', body: '{}' }); } catch (_) {}

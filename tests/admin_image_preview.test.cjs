@@ -105,6 +105,7 @@ const existingPartner = {
   website_url: "",
   image_url: existingImageUrl,
   nexus_points: 0,
+  point_courses: "",
   map_x: null,
   map_y: null,
   published: true,
@@ -132,6 +133,11 @@ function createAdminPage() {
   const objectUrls = [];
   const revokedObjectUrls = [];
   const uploadResponses = [];
+  let categoryOptions = [
+    { id: "hair", label: "美容院・ヘア" },
+    { id: "grooming", label: "身だしなみ" },
+    { id: "eyebrow", label: "眉毛" },
+  ];
 
   class FakeFormData {
     constructor() {
@@ -165,15 +171,24 @@ function createAdminPage() {
       let body = {};
       if (url === "/api/admin/session") {
         body = { authenticated: true };
-        } else if (url === "/api/admin/uploads/partner-image") {
-          const response = uploadResponses.shift() || {
-            ok: true,
-            body: {
-              image_url:
-                "/uploads/partners/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
-            },
-          };
-          return { ok: response.ok, json: async () => response.body };
+      } else if (url === "/api/admin/categories") {
+        if (options.method === "POST") {
+          const label = JSON.parse(options.body).label;
+          const category = { id: "custom_test", label };
+          categoryOptions = [...categoryOptions, category];
+          body = { category, categories: categoryOptions };
+        } else {
+          body = { categories: categoryOptions };
+        }
+      } else if (url === "/api/admin/uploads/partner-image") {
+        const response = uploadResponses.shift() || {
+          ok: true,
+          body: {
+            image_url:
+              "/uploads/partners/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
+          },
+        };
+        return { ok: response.ok, json: async () => response.body };
       } else if (url === "/api/admin/partners") {
         body = { partners: [existingPartner] };
       } else if (url === `/api/admin/partners/${existingPartner.id}`) {
@@ -255,6 +270,46 @@ test("editing and saving without choosing an image keeps the registered image UR
     false,
     "saving without a newly selected image should not upload a file",
   );
+});
+
+test("admins can add a genre and save Nexus Point eligible courses", async () => {
+  const page = createAdminPage();
+  await waitForDashboard(page);
+
+  page.getElementById("new-category-label").value = "ネイル";
+  await page
+    .getElementById("category-form")
+    .dispatch("submit", { preventDefault() {} });
+
+  assert.equal(page.getElementById("category").value, "custom_test");
+  assert.match(page.getElementById("category-list").children.at(-1).textContent, /ネイル/);
+  const categoryRequest = page.requests.find(
+    ({ url, options }) =>
+      url === "/api/admin/categories" && options.method === "POST",
+  );
+  assert.equal(JSON.parse(categoryRequest.options.body).label, "ネイル");
+
+  const fields = {
+    name: "Nexus Point 対応サロン",
+    area: "名古屋市",
+    nexus_points: "3000",
+    point_courses: "カットコース\nカラーコース",
+  };
+  for (const [id, value] of Object.entries(fields)) {
+    page.getElementById(id).value = value;
+  }
+  await page
+    .getElementById("partner-form")
+    .dispatch("submit", { preventDefault() {} });
+
+  const createRequest = page.requests.find(
+    ({ url, options }) => url === "/api/admin/partners" && options.method === "POST",
+  );
+  assert.ok(createRequest, "the new partner should be submitted");
+  const payload = JSON.parse(createRequest.options.body);
+  assert.equal(payload.category, "custom_test");
+  assert.equal(payload.point_courses, fields.point_courses);
+  assert.equal(payload.nexus_points, 3000);
 });
 
 test("upload rejection preserves partner details and allows retry with a replacement image", async () => {
@@ -343,6 +398,7 @@ test("upload rejection preserves partner details and allows retry with a replace
     website_url: fields.website_url,
     image_url: "/uploads/partners/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
     nexus_points: 250,
+    point_courses: "",
     map_x: fields.map_x,
     map_y: fields.map_y,
     display_order: 3,

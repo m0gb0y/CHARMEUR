@@ -10,8 +10,8 @@ import server
 
 PARTNER_FIELDS = (
     "id", "name", "category", "area", "description", "website_url",
-    "image_url", "nexus_points", "map_x", "map_y", "published",
-    "display_order",
+    "image_url", "nexus_points", "point_courses", "map_x", "map_y",
+    "published", "display_order",
 )
 
 
@@ -51,13 +51,15 @@ class MemoryPartnerDatabase:
         if "UPDATE partner_listings SET" in query:
             (
                 name, category, area, description, website_url, image_url,
-                nexus_points, map_x, map_y, published, display_order, partner_id,
+                nexus_points, point_courses, map_x, map_y, published,
+                display_order, partner_id,
             ) = params
             row = self.partners[partner_id]
             row.update(
                 name=name, category=category, area=area, description=description,
                 website_url=website_url, image_url=image_url,
-                nexus_points=nexus_points, map_x=map_x, map_y=map_y,
+                nexus_points=nexus_points, point_courses=point_courses,
+                map_x=map_x, map_y=map_y,
                 published=published, display_order=display_order,
             )
             return MemoryCursor(row.copy())
@@ -114,7 +116,7 @@ class PartnerImageCleanupTests(unittest.TestCase):
     def partner_row(partner_id, image_url):
         return dict(zip(PARTNER_FIELDS, (
             partner_id, "テスト提携先", "hair", "名古屋市", "", "",
-            image_url, 0, None, None, True, 1,
+            image_url, 0, "", None, None, True, 1,
         )))
 
     def update_partner(self, image_url):

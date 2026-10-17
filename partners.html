@@ -54,6 +54,9 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .partner-category { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
 .partner-area { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
 .partner-desc { font-size: 11.5px; color: var(--muted); line-height: 1.8; }
+.point-course-note { margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(184,150,90,.18); background: rgba(184,150,90,.06); }
+.point-course-label { margin-bottom: 4px; color: var(--gold); font-size: 9px; letter-spacing: .12em; }
+.point-course-text { color: var(--muted); font-size: 11px; line-height: 1.7; white-space: pre-line; }
 .partner-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
 .partner-link:hover { border-color: var(--gold); }
 
@@ -105,6 +108,9 @@ html.modal-open { overflow: hidden; }
 .modal-name { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; margin-bottom: 6px; }
 .modal-area { font-size: 11px; color: var(--muted); margin-bottom: 16px; }
 .modal-desc { font-size: 13px; color: var(--muted); line-height: 1.9; margin-bottom: 24px; }
+.modal-point-courses { margin: -8px 0 20px; padding: 12px 14px; border: 1px solid rgba(184,150,90,.22); background: rgba(184,150,90,.06); }
+.modal-point-courses-label { margin-bottom: 4px; color: var(--gold); font-size: 9px; letter-spacing: .12em; }
+.modal-point-courses-text { color: var(--muted); font-size: 12px; line-height: 1.7; white-space: pre-line; }
 .modal-btn { display: block; text-align: center; background: var(--gold); color: var(--black); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; padding: 14px; text-decoration: none; font-weight: 500; }
 
 /* Footer */
@@ -142,7 +148,7 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
       <span style="font-size:20px;">🪙</span>
       <div>
         <div style="font-size:9px;letter-spacing:0.25em;text-transform:uppercase;color:#B8965A;margin-bottom:2px;">Nexus Point 対応</div>
-        <div style="font-size:12px;color:#7A7570;line-height:1.6;">全提携サロンでNexus Pointが使えます。<br>各店舗の上限Point数はカードに記載。</div>
+        <div style="font-size:12px;color:#7A7570;line-height:1.6;">全提携サロンでNexus Pointが使えます。<br>上限と利用可能コースは各店舗のカードに記載。</div>
       </div>
     </div>
   </div>
@@ -151,14 +157,6 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 <!-- FILTER -->
 <div class="filter-bar" id="filter-bar">
   <button class="filter-btn active" onclick="filterPartners('all', this)">すべて</button>
-  <button class="filter-btn" onclick="filterPartners('hair', this)">美容院・ヘア</button>
-  <button class="filter-btn" onclick="filterPartners('grooming', this)">身だしなみ</button>
-  <button class="filter-btn" onclick="filterPartners('fashion', this)">ファッション</button>
-  <button class="filter-btn" onclick="filterPartners('photo', this)">フォト撮影</button>
-  <button class="filter-btn" onclick="filterPartners('wellness', this)">ウェルネス</button>
-  <button class="filter-btn" onclick="filterPartners('whitening', this)">ホワイトニング</button>
-  <button class="filter-btn" onclick="filterPartners('clinic', this)">クリニック</button>
-  <button class="filter-btn" onclick="filterPartners('lesson', this)">講座</button>
 </div>
 
 <!-- PARTNER GRID -->
@@ -206,6 +204,10 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
         <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:#F0EDE8;"><span id="modal-point"></span> Nexus Point / 回</div>
       </div>
     </div>
+    <div class="modal-point-courses" id="modal-point-courses" style="display:none;">
+      <div class="modal-point-courses-label">NEXUS POINT 利用可能コース</div>
+      <div class="modal-point-courses-text" id="modal-point-courses-text"></div>
+    </div>
     <div id="modal-coming-soon" style="display:none;text-align:center;padding:12px;border:1px dashed rgba(184,150,90,0.2);margin-bottom:16px;">
       <p style="font-size:10px;letter-spacing:0.2em;color:#B8965A;">COMING SOON</p>
       <p style="font-size:11px;color:#7A7570;margin-top:4px;">提携情報は準備中です</p>
@@ -224,12 +226,13 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
-const CATEGORIES = {
+let CATEGORIES = {
   whitening: 'ホワイトニング',
   clinic: 'クリニック',
   lesson: '講座',
   hair: '美容院・ヘア',
   grooming: '身だしなみ',
+  eyebrow: '眉毛',
   fashion: 'ファッション',
   photo: 'フォト撮影',
   wellness: 'ウェルネス'
@@ -336,12 +339,13 @@ function renderGrid() {
         <span style="font-family:'Cormorant Garamond',serif;font-size:13px;font-weight:300;color:var(--gold);letter-spacing:0.2em;border:1px solid rgba(184,150,90,0.3);padding:2px 8px;">${escapePartnerHtml(p.marker || p.id)}</span>
       </div>
       ${p.photo ? `<div style="width:100%;height:200px;overflow:hidden;margin-bottom:14px;"><img src="${escapePartnerHtml(p.photo)}" style="width:100%;height:100%;object-fit:cover;object-position:${escapePartnerHtml(p.photoPos||'center')};" alt="${escapePartnerHtml(p.name)}"></div>` : ''}
-      <div class="partner-category">${escapePartnerHtml(CATEGORIES[p.cat])}</div>
+      <div class="partner-category">${escapePartnerHtml(CATEGORIES[p.cat] || p.cat)}</div>
       <div class="partner-name">${escapePartnerHtml(p.name)}</div>
       ${p.stylist ? `<div style="font-size:11px;color:#B8965A;margin-bottom:4px;letter-spacing:0.05em;">担当：${escapePartnerHtml(p.stylist)}（${escapePartnerHtml(p.role)}）</div>` : ''}
       <div class="partner-area">📍 ${escapePartnerHtml(p.area)}</div>
       <div class="partner-desc">${escapePartnerHtml(p.desc)}</div>
       ${p.point > 0 ? `<div style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:4px 10px;background:rgba(184,150,90,0.08);border:1px solid rgba(184,150,90,0.18);"><span style="font-size:12px;">✦</span><span style="font-size:10px;color:#B8965A;letter-spacing:0.1em;">上限 ${p.point.toLocaleString()} Nexus Point / 回</span></div>` : ''}
+      ${p.point_courses ? `<div class="point-course-note"><div class="point-course-label">NEXUS POINT 利用可能コース</div><div class="point-course-text">${escapePartnerHtml(p.point_courses)}</div></div>` : ''}
       ${p.url && p.url !== '#' ? `<a href="${escapePartnerHtml(p.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="display:inline-block;margin-top:10px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#B8965A;border-bottom:1px solid rgba(184,150,90,0.3);text-decoration:none;padding-bottom:2px;">サイトを見る →</a>` : `<span style="display:inline-block;margin-top:10px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#7A7570;border:1px dashed rgba(184,150,90,0.15);padding:3px 10px;">Coming Soon</span>`}
     </div>
   `).join('');
@@ -381,7 +385,7 @@ function renderPins() {
       riseOnHover: true
     }).addTo(partnerPinLayer);
     marker.bindTooltip(
-      `<div class="pin-tooltip-name">${escapePartnerHtml(p.name)}</div><div class="pin-tooltip-cat">${escapePartnerHtml(CATEGORIES[p.cat])}</div><div class="pin-tooltip-area">${escapePartnerHtml(p.area)}</div>`,
+      `<div class="pin-tooltip-name">${escapePartnerHtml(p.name)}</div><div class="pin-tooltip-cat">${escapePartnerHtml(CATEGORIES[p.cat] || p.cat)}</div><div class="pin-tooltip-area">${escapePartnerHtml(p.area)}</div>`,
       { direction: 'top', offset: [0, -12], className: 'partner-pin-tooltip' }
     );
     marker.on('click', () => openModal(p.id));
@@ -401,10 +405,33 @@ function renderPins() {
 
 function filterPartners(cat, btn) {
   activeFilter = cat;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.remove('active');
+    b.setAttribute('aria-pressed', 'false');
+  });
   btn.classList.add('active');
+  btn.setAttribute('aria-pressed', 'true');
   renderGrid();
   renderPins();
+}
+
+function renderCategoryFilters(categories) {
+  const bar = document.getElementById('filter-bar');
+  if (!bar) return;
+  if (activeFilter !== 'all' && !categories.some(category => category.id === activeFilter)) {
+    activeFilter = 'all';
+  }
+  const options = [{ id: 'all', label: 'すべて' }, ...categories];
+  bar.replaceChildren();
+  for (const category of options) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `filter-btn${activeFilter === category.id ? ' active' : ''}`;
+    button.textContent = category.label;
+    button.setAttribute('aria-pressed', String(activeFilter === category.id));
+    button.addEventListener('click', () => filterPartners(category.id, button));
+    bar.append(button);
+  }
 }
 
 let modalScrollY = 0;
@@ -414,11 +441,14 @@ function openModal(id) {
   const p = PARTNERS.find(x => x.id === id);
   if (!p) return;
   document.getElementById('modal-letter').textContent = p.marker || p.id;
-  document.getElementById('modal-category').textContent = CATEGORIES[p.cat];
+  document.getElementById('modal-category').textContent = CATEGORIES[p.cat] || p.cat;
   document.getElementById('modal-name').textContent = p.name;
   document.getElementById('modal-area').textContent = '📍 ' + p.area;
   document.getElementById('modal-desc').textContent = p.desc;
   document.getElementById('modal-point').textContent = p.point.toLocaleString();
+  const pointCourses = String(p.point_courses || '').trim();
+  document.getElementById('modal-point-courses-text').textContent = pointCourses;
+  document.getElementById('modal-point-courses').style.display = pointCourses ? 'block' : 'none';
   const photo = document.getElementById('modal-photo');
   if (p.photo) {
     photo.src = p.photo;
@@ -503,6 +533,7 @@ fetch('/api/partners', { cache: 'no-store' })
         stylist: legacy?.stylist || '',
         role: legacy?.role || '',
         point: partner.nexus_points,
+        point_courses: partner.point_courses || '',
         x: partner.map_x ?? legacy?.x ?? null,
         y: partner.map_y ?? legacy?.y ?? null,
         real: true
@@ -516,6 +547,22 @@ fetch('/api/partners', { cache: 'no-store' })
   .catch(() => {
     const count = document.querySelector('.category-label');
     if (count) count.textContent = '提携先情報を読み込めませんでした。';
+  });
+
+fetch('/api/categories', { cache: 'no-store' })
+  .then(response => {
+    if (!response.ok) throw new Error('ジャンル情報を取得できませんでした。');
+    return response.json();
+  })
+  .then(data => {
+    const categories = Array.isArray(data.categories) ? data.categories : [];
+    CATEGORIES = Object.fromEntries(categories.map(category => [category.id, category.label]));
+    renderCategoryFilters(categories);
+    renderGrid();
+    renderPins();
+  })
+  .catch(() => {
+    renderCategoryFilters(Object.entries(CATEGORIES).map(([id, label]) => ({ id, label })));
   });
 </script>
 </body>

@@ -56,14 +56,22 @@ PARTNER_IMAGE_FORMATS = {
     "png": "PNG",
     "webp": "WEBP",
 }
-ALLOWED_CATEGORIES = {
-    "hair", "grooming", "fashion", "photo", "wellness",
-    "whitening", "clinic", "lesson",
-}
+CATEGORY_OPTIONS = (
+    {"id": "hair", "label": "美容院・ヘア"},
+    {"id": "grooming", "label": "身だしなみ"},
+    {"id": "eyebrow", "label": "眉毛"},
+    {"id": "fashion", "label": "ファッション"},
+    {"id": "photo", "label": "フォト撮影"},
+    {"id": "wellness", "label": "ウェルネス"},
+    {"id": "whitening", "label": "ホワイトニング"},
+    {"id": "clinic", "label": "クリニック"},
+    {"id": "lesson", "label": "講座"},
+)
+DEFAULT_CATEGORIES = {category["id"]: category["label"] for category in CATEGORY_OPTIONS}
 PARTNER_FIELDS = (
     "id", "name", "category", "area", "description", "website_url",
-    "image_url", "nexus_points", "map_x", "map_y", "published",
-    "display_order",
+    "image_url", "nexus_points", "point_courses", "map_x", "map_y",
+    "published", "display_order",
 )
 PUBLIC_PAGES = {
     "index.html", "partners.html", "privacy.html", "terms.html",
@@ -157,6 +165,17 @@ def partner_json(row):
     return result
 
 
+def category_options(conn):
+    custom_categories = conn.execute(
+        """SELECT id, label FROM partner_categories
+           ORDER BY display_order, label"""
+    ).fetchall()
+    return [
+        *({"id": item["id"], "label": item["label"]} for item in CATEGORY_OPTIONS),
+        *({"id": row["id"], "label": row["label"]} for row in custom_categories),
+    ]
+
+
 def admin_secret():
     return os.environ.get("PARTNER_ADMIN_PASSWORD", "")
 
@@ -197,7 +216,7 @@ def validate_same_origin():
         abort(403)
 
 
-def validate_partner(payload, existing=None):
+def validate_partner(payload, existing=None, conn=None):
     if not isinstance(payload, dict):
         return None, "入力内容を確認してください。"
     data = {}
@@ -206,10 +225,16 @@ def validate_partner(payload, existing=None):
         ("category", "", 30),
         ("area", "", 120),
         ("description", "", 2000),
+        ("point_courses", "", 2000),
         ("website_url", "", 500),
         ("image_url", "", 1000),
     ):
-        value = payload.get(field, existing[field] if existing else default)
+        if field in payload:
+            value = payload[field]
+        elif existing:
+            value = existing.get(field, default)
+        else:
+            value = default
         if not isinstance(value, str):
             return None, "入力内容を確認してください。"
         value = value.strip()
@@ -219,7 +244,14 @@ def validate_partner(payload, existing=None):
 
     if not data["name"]:
         return None, "提携先名を入力してください。"
-    if data["category"] not in ALLOWED_CATEGORIES:
+    category_is_default = data["category"] in DEFAULT_CATEGORIES
+    category_is_custom = False
+    if not category_is_default and conn is not None:
+        category_is_custom = conn.execute(
+            "SELECT EXISTS (SELECT 1 FROM partner_categories WHERE id = %s) AS exists",
+            (data["category"],),
+        ).fetchone()["exists"]
+    if not category_is_default and not category_is_custom:
         return None, "カテゴリを選択してください。"
 
     for field in ("website_url", "image_url"):
@@ -309,12 +341,19 @@ def get_public_partners():
     with db_connection() as conn:
         rows = conn.execute(
             """SELECT id, name, category, area, description, website_url,
-                      image_url, nexus_points, map_x, map_y, published, display_order
+                      image_url, nexus_points, point_courses, map_x, map_y,
+                      published, display_order
                FROM partner_listings
                WHERE published = true
                ORDER BY display_order, created_at"""
         ).fetchall()
     return jsonify(partners=[partner_json(row) for row in rows])
+
+
+@app.get("/api/categories")
+def get_public_categories():
+    with db_connection() as conn:
+        return jsonify(categories=category_options(conn))
 
 
 @app.post("/api/admin/login")
@@ -369,13 +408,59 @@ def admin_session():
     return jsonify(authenticated=is_admin())
 
 
+@app.get("/api/admin/categories")
+@require_admin
+def get_admin_categories():
+    with db_connection() as conn:
+        return jsonify(categories=category_options(conn))
+
+
+@app.post("/api/admin/categories")
+@require_admin
+def create_category():
+    validate_same_origin()
+    payload = request.get_json(silent=True) or {}
+    label = payload.get("label", "")
+    if not isinstance(label, str):
+        return jsonify(error="ジャンル名を入力してください。"), 400
+    label = label.strip()
+    if not label or len(label) > 40:
+        return jsonify(error="ジャンル名は1〜40文字で入力してください。"), 400
+    if any(label.casefold() == item["label"].casefold() for item in CATEGORY_OPTIONS):
+        return jsonify(error="同じジャンルがすでに登録されています。"), 409
+
+    category_id = f"custom_{uuid.uuid4().hex[:16]}"
+    try:
+        with db_connection() as conn:
+            exists = conn.execute(
+                "SELECT EXISTS (SELECT 1 FROM partner_categories WHERE lower(label) = lower(%s)) AS exists",
+                (label,),
+            ).fetchone()["exists"]
+            if exists:
+                return jsonify(error="同じジャンルがすでに登録されています。"), 409
+            next_order = conn.execute(
+                "SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM partner_categories"
+            ).fetchone()["next_order"]
+            category = conn.execute(
+                """INSERT INTO partner_categories (id, label, display_order)
+                   VALUES (%s, %s, %s)
+                   RETURNING id, label""",
+                (category_id, label, next_order),
+            ).fetchone()
+            categories = category_options(conn)
+    except psycopg.errors.UniqueViolation:
+        return jsonify(error="同じジャンルがすでに登録されています。"), 409
+    return jsonify(category=category, categories=categories), 201
+
+
 @app.get("/api/admin/partners")
 @require_admin
 def get_admin_partners():
     with db_connection() as conn:
         rows = conn.execute(
             """SELECT id, name, category, area, description, website_url,
-                      image_url, nexus_points, map_x, map_y, published, display_order
+                      image_url, nexus_points, point_courses, map_x, map_y,
+                      published, display_order
                FROM partner_listings
                ORDER BY display_order, created_at"""
         ).fetchall()
@@ -422,11 +507,11 @@ def upload_partner_image():
 def create_partner():
     validate_same_origin()
     payload = request.get_json(silent=True) or {}
-    data, error = validate_partner(payload)
-    if error:
-        return jsonify(error=error), 400
-    partner_id = uuid.uuid4()
     with db_connection() as conn:
+        data, error = validate_partner(payload, conn=conn)
+        if error:
+            return jsonify(error=error), 400
+        partner_id = uuid.uuid4()
         if "display_order" not in payload:
             data["display_order"] = conn.execute(
                 "SELECT COALESCE(MAX(display_order), 0) + 1 AS next_order FROM partner_listings"
@@ -434,15 +519,16 @@ def create_partner():
         row = conn.execute(
             """INSERT INTO partner_listings
                (id, name, category, area, description, website_url, image_url,
-                nexus_points, map_x, map_y, published, display_order)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                nexus_points, point_courses, map_x, map_y, published, display_order)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                RETURNING id, name, category, area, description, website_url,
-                         image_url, nexus_points, map_x, map_y, published, display_order""",
+                         image_url, nexus_points, point_courses, map_x, map_y,
+                         published, display_order""",
             (
                 partner_id, data["name"], data["category"], data["area"],
                 data["description"], data["website_url"], data["image_url"],
-                data["nexus_points"], data["map_x"], data["map_y"],
-                data["published"], data["display_order"],
+                data["nexus_points"], data["point_courses"], data["map_x"],
+                data["map_y"], data["published"], data["display_order"],
             ),
         ).fetchone()
     return jsonify(partner=partner_json(row)), 201
@@ -455,28 +541,33 @@ def update_partner(partner_id):
     with db_connection() as conn:
         existing = conn.execute(
             """SELECT id, name, category, area, description, website_url,
-                      image_url, nexus_points, map_x, map_y, published, display_order
+                      image_url, nexus_points, point_courses, map_x, map_y,
+                      published, display_order
                FROM partner_listings WHERE id = %s""",
             (partner_id,),
         ).fetchone()
         if not existing:
             return jsonify(error="提携先が見つかりません。"), 404
-        data, error = validate_partner(request.get_json(silent=True) or {}, existing)
+        data, error = validate_partner(
+            request.get_json(silent=True) or {}, existing, conn
+        )
         if error:
             return jsonify(error=error), 400
         row = conn.execute(
             """UPDATE partner_listings SET
                  name = %s, category = %s, area = %s, description = %s,
                  website_url = %s, image_url = %s, nexus_points = %s,
+                 point_courses = %s,
                  map_x = %s, map_y = %s, published = %s, display_order = %s,
                  updated_at = NOW()
                WHERE id = %s
                RETURNING id, name, category, area, description, website_url,
-                         image_url, nexus_points, map_x, map_y, published, display_order""",
+                         image_url, nexus_points, point_courses, map_x, map_y,
+                         published, display_order""",
             (
                 data["name"], data["category"], data["area"], data["description"],
                 data["website_url"], data["image_url"], data["nexus_points"],
-                data["map_x"], data["map_y"], data["published"],
+                data["point_courses"], data["map_x"], data["map_y"], data["published"],
                 data["display_order"], partner_id,
             ),
         ).fetchone()

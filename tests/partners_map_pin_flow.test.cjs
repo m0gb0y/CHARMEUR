@@ -23,6 +23,8 @@ class FakeElement {
     this.textContent = "";
     this.style = {};
     this.attributes = {};
+    this.children = [];
+    this.listeners = new Map();
     this.classList = {
       values: new Set(),
       add(value) {
@@ -41,10 +43,34 @@ class FakeElement {
     delete this.attributes[name];
     if (name === "src") this.src = "";
   }
+
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
+
+  addEventListener(name, handler) {
+    const handlers = this.listeners.get(name) || [];
+    handlers.push(handler);
+    this.listeners.set(name, handlers);
+  }
+
+  dispatch(name, event = {}) {
+    for (const handler of this.listeners.get(name) || []) handler(event);
+  }
+
+  append(...children) {
+    this.children.push(...children);
+  }
+
+  replaceChildren(...children) {
+    this.children = [...children];
+  }
 }
 
 function makeMapHarness() {
   const ids = [
+    "partners-grid",
+    "filter-bar",
     "map-wrapper",
     "map-pins",
     "map-legend",
@@ -54,6 +80,8 @@ function makeMapHarness() {
     "modal-area",
     "modal-desc",
     "modal-point",
+    "modal-point-courses",
+    "modal-point-courses-text",
     "modal-photo",
     "modal-stylist",
     "modal-btn",
@@ -62,6 +90,13 @@ function makeMapHarness() {
   ];
   const elements = Object.fromEntries(ids.map((id) => [id, new FakeElement()]));
   const filterButtons = [new FakeElement(), new FakeElement()];
+  const partnerPinLayer = {
+    markers: [],
+    clearLayers() {
+      this.markers.length = 0;
+    },
+  };
+  const map = { fittedBounds: null, fitBounds(bounds) { this.fittedBounds = bounds; } };
   const partners = [
     {
       id: "hair-partner-id",
@@ -71,6 +106,7 @@ function makeMapHarness() {
       area: "名古屋市中区",
       desc: "ヘアサロンの詳細",
       point: 120,
+      point_courses: "通常カット\nカラーコース",
       photo: "",
       url: "https://example.com/hair",
       real: true,
@@ -85,6 +121,7 @@ function makeMapHarness() {
       area: "名古屋市中村区",
       desc: "ホテルの詳細",
       point: 250,
+      point_courses: "",
       photo: "",
       url: "https://example.com/hotel",
       real: true,
@@ -99,6 +136,7 @@ function makeMapHarness() {
       area: "名古屋市中区",
       desc: "同じ座標にある提携先の詳細",
       point: 180,
+      point_courses: "",
       photo: "",
       url: "https://example.com/same-location",
       real: true,
@@ -113,6 +151,7 @@ function makeMapHarness() {
       area: "名古屋市中区",
       desc: "カフェの詳細",
       point: 90,
+      point_courses: "",
       photo: "",
       url: "https://example.com/sakae-cafe",
       real: true,
@@ -127,6 +166,7 @@ function makeMapHarness() {
       area: "名古屋市中区",
       desc: "レストランの詳細",
       point: 210,
+      point_courses: "",
       photo: "",
       url: "https://example.com/sakae-restaurant",
       real: true,
@@ -139,12 +179,55 @@ function makeMapHarness() {
     CATEGORIES: { hair: "美容", hotel: "ホテル" },
     activeFilter: "all",
     document: {
+      body: { style: {} },
+      documentElement: new FakeElement(),
       getElementById(id) {
         return elements[id];
       },
+      createElement() {
+        return new FakeElement();
+      },
       querySelectorAll(selector) {
         assert.equal(selector, ".filter-btn");
-        return filterButtons;
+        return elements["filter-bar"].children.length
+          ? elements["filter-bar"].children
+          : filterButtons;
+      },
+    },
+    ensurePartnerMap() {
+      return true;
+    },
+    partnerPinLayer,
+    partnerMap: map,
+    partnerMapHasFittedPins: false,
+    percentToPartnerLatLng(x, y) {
+      return { x, y };
+    },
+    L: {
+      divIcon(options) {
+        return options;
+      },
+      marker(location, options) {
+        return {
+          location,
+          options,
+          handlers: {},
+          addTo(layer) {
+            layer.markers.push(this);
+            return this;
+          },
+          bindTooltip(content) {
+            this.tooltip = content;
+            return this;
+          },
+          on(name, handler) {
+            this.handlers[name] = handler;
+            return this;
+          },
+        };
+      },
+      latLngBounds(locations) {
+        return locations;
       },
     },
     escapePartnerHtml(value) {
@@ -157,18 +240,29 @@ function makeMapHarness() {
       })[character]);
     },
     renderGrid() {},
+    modalScrollY: 0,
+    modalBodyStyles: null,
+    window: {
+      scrollY: 125,
+      scrollTo(_x, y) {
+        this.scrollY = y;
+      },
+    },
     Number,
   };
   vm.createContext(sandbox);
   vm.runInContext(
     [
+      extractFunction("renderGrid"),
       extractFunction("renderPins"),
       extractFunction("filterPartners"),
+      extractFunction("renderCategoryFilters"),
       extractFunction("openModal"),
+      extractFunction("closeModal"),
     ].join("\n"),
     sandbox,
   );
-  return { elements, filterButtons, partners, sandbox };
+  return { elements, filterButtons, partners, partnerPinLayer, sandbox };
 }
 
 function generatedPins(pinsHtml) {
@@ -192,72 +286,111 @@ function assertModalMatchesPartner(elements, partner) {
   assert.equal(elements["modal-area"].textContent, `📍 ${partner.area}`);
   assert.equal(elements["modal-desc"].textContent, partner.desc);
   assert.equal(elements["modal-point"].textContent, String(partner.point));
+  assert.equal(
+    elements["modal-point-courses-text"].textContent,
+    partner.point_courses || "",
+  );
+  assert.equal(
+    elements["modal-point-courses"].style.display,
+    partner.point_courses ? "block" : "none",
+  );
   assert.ok(elements["modal-overlay"].classList.contains("open"));
 }
 
-test("clicking each map pin opens the detail for the partner represented by that pin", () => {
-  const { elements, partners, sandbox } = makeMapHarness();
+test("clicking each map marker opens the detail for the represented partner", () => {
+  const { elements, partners, partnerPinLayer, sandbox } = makeMapHarness();
 
   sandbox.renderPins();
-  const pinIds = generatedPinIds(elements["map-pins"].innerHTML);
-  assert.deepEqual(pinIds, partners.map((partner) => partner.id));
 
-  for (const pinId of pinIds) {
-    sandbox.openModal(pinId);
-    const partner = partners.find((entry) => entry.id === pinId);
-    assertModalMatchesPartner(elements, partner);
+  const markers = partnerPinLayer.markers;
+  assert.equal(markers.length, partners.length);
+  assert.deepEqual(
+    markers.map((marker) => marker.options.title),
+    partners.map((partner) => `${partner.name}の詳細を表示`),
+  );
+
+  for (const [index, marker] of markers.entries()) {
+    marker.handlers.click();
+    assertModalMatchesPartner(elements, partners[index]);
+    sandbox.closeModal();
   }
 });
 
-test("all partners at the same coordinates have separate clickable pins", () => {
-  const { elements, partners, sandbox } = makeMapHarness();
+test("eligible Nexus Point courses appear on the public partner card", () => {
+  const { elements, sandbox } = makeMapHarness();
+
+  sandbox.renderGrid();
+
+  assert.match(elements["partners-grid"].innerHTML, /NEXUS POINT 利用可能コース/);
+  assert.match(elements["partners-grid"].innerHTML, /通常カット/);
+  assert.match(elements["partners-grid"].innerHTML, /カラーコース/);
+  assert.match(
+    partnersHtml,
+    /\.point-course-text\s*\{[^}]*white-space:\s*pre-line/,
+    "line breaks entered by an admin should stay readable",
+  );
+});
+
+test("custom genres are available as public filters", () => {
+  const { elements, sandbox } = makeMapHarness();
+
+  sandbox.renderCategoryFilters([
+    { id: "eyebrow", label: "眉毛" },
+    { id: "custom_nails", label: "ネイル" },
+  ]);
+
+  const nailFilter = elements["filter-bar"].children.find(
+    (button) => button.textContent === "ネイル",
+  );
+  assert.ok(nailFilter, "the custom genre should be rendered as a filter");
+  assert.equal(nailFilter.attributes["aria-pressed"], "false");
+
+  nailFilter.dispatch("click");
+
+  assert.equal(sandbox.activeFilter, "custom_nails");
+  assert.equal(nailFilter.attributes["aria-pressed"], "true");
+  assert.ok(nailFilter.classList.contains("active"));
+});
+
+test("partners at the same coordinates remain separate clickable map markers", () => {
+  const { elements, partners, partnerPinLayer, sandbox } = makeMapHarness();
 
   sandbox.renderPins();
 
-  const pinAttributes = generatedPins(elements["map-pins"].innerHTML);
-  const pinIds = generatedPinIds(elements["map-pins"].innerHTML);
   const overlappingPartners = partners.filter(
     (partner) => partner.x === 20 && partner.y === 30,
   );
-  const overlappingPins = overlappingPartners.map((partner) => {
-    const index = pinIds.indexOf(partner.id);
-    assert.notEqual(index, -1, `${partner.name} should have a map pin`);
-    return pinAttributes[index];
-  });
-  const transforms = overlappingPins.map(
-    (attributes) => attributes.match(/transform:([^;"]+)/)?.[1],
+  const overlappingMarkers = partnerPinLayer.markers.filter(
+    (marker) => marker.location.x === 20 && marker.location.y === 30,
   );
 
   assert.ok(
-    overlappingPins.length >= 3,
+    overlappingMarkers.length >= 3,
     "the test should cover groups of at least three partners at one location",
   );
-  assert.ok(
-    transforms.every(Boolean),
-    "pins sharing a location should each be offset from the exact same point",
-  );
   assert.equal(
-    new Set(transforms).size,
-    overlappingPins.length,
-    "each partner at the same location should have a distinct offset",
+    new Set(overlappingMarkers).size,
+    overlappingPartners.length,
+    "each partner at the same location should have its own marker",
   );
 
-  for (const [index, partner] of partners.entries()) {
-    if (!overlappingPartners.includes(partner)) continue;
-    const clickHandler = pinAttributes[index].match(/onclick="([^"]+)"/)?.[1];
-    assert.ok(clickHandler, `${partner.name} should have a click handler`);
-    vm.runInContext(clickHandler, sandbox);
+  for (const partner of overlappingPartners) {
+    const marker = overlappingMarkers.find(
+      (candidate) => candidate.options.title === `${partner.name}の詳細を表示`,
+    );
+    assert.ok(marker, `${partner.name} should have a clickable marker`);
+    marker.handlers.click();
     assertModalMatchesPartner(elements, partner);
-    elements["modal-overlay"].classList.remove("open");
+    sandbox.closeModal();
   }
 });
 
 test("each pin in a group of three or more at one location opens its detail by keyboard", () => {
-  const { elements, partners, sandbox } = makeMapHarness();
+  const { elements, partners, partnerPinLayer, sandbox } = makeMapHarness();
 
   sandbox.renderPins();
-  const pins = generatedPins(elements["map-pins"].innerHTML);
-  assert.equal(pins.length, partners.length);
+  const markers = partnerPinLayer.markers;
+  assert.equal(markers.length, partners.length);
   const overlappingPartners = partners.filter(
     (partner) => partner.x === 20 && partner.y === 30,
   );
@@ -266,52 +399,53 @@ test("each pin in a group of three or more at one location opens its detail by k
     "the keyboard test should cover at least three partners at one location",
   );
 
-  for (const [index, pinAttributes] of pins.entries()) {
+  for (const [index, marker] of markers.entries()) {
     const partner = partners[index];
-    assert.match(pinAttributes, /role="button"/);
-    assert.match(pinAttributes, /tabindex="0"/);
-    assert.match(
-      pinAttributes,
-      new RegExp(`aria-label="${partner.name}の詳細を表示"`),
-    );
-
-    const keydownHandler = pinAttributes.match(/onkeydown="([^"]+)"/)?.[1];
-    assert.ok(keydownHandler, "each pin should handle keyboard activation");
-
+    assert.equal(marker.options.keyboard, true);
+    assert.equal(typeof marker.handlers.keydown, "function");
     for (const key of ["Enter", " "]) {
       let preventedDefault = false;
-      sandbox.event = {
-        key,
-        preventDefault() {
-          preventedDefault = true;
+      marker.handlers.keydown({
+        originalEvent: {
+          key,
+          preventDefault() {
+            preventedDefault = true;
+          },
         },
-      };
-      vm.runInContext(keydownHandler, sandbox);
+      });
 
       assert.equal(preventedDefault, true, `${key} should not scroll the page`);
       assertModalMatchesPartner(elements, partner);
-      elements["modal-overlay"].classList.remove("open");
+      sandbox.closeModal();
     }
   }
 });
 
 test("category filtering keeps each generated pin connected to its own detail", () => {
-  const { elements, filterButtons, partners, sandbox } = makeMapHarness();
+  const { elements, filterButtons, partners, partnerPinLayer, sandbox } = makeMapHarness();
   const hotel = partners.find((partner) => partner.cat === "hotel");
 
   sandbox.filterPartners("hotel", filterButtons[0]);
 
-  const pinIds = generatedPinIds(elements["map-pins"].innerHTML);
-  assert.deepEqual(pinIds, partners.map((partner) => partner.id));
-  assert.match(
-    elements["map-pins"].innerHTML,
-    /map-pin-dot dimmed[^>]*>01<\/div>/,
+  const markers = partnerPinLayer.markers;
+  assert.equal(markers.length, partners.length);
+  assert.ok(
+    markers.find((marker) => marker.options.title === "栄ヘアサロンの詳細を表示")
+      .options.icon.className.includes("dimmed"),
     "pins outside the selected category should be visibly dimmed",
   );
+  assert.equal(
+    markers.find((marker) => marker.options.title === `${hotel.name}の詳細を表示`)
+      .options.icon.className.includes("dimmed"),
+    false,
+  );
   assert.ok(filterButtons[0].classList.contains("active"));
+  assert.equal(filterButtons[0].attributes["aria-pressed"], "true");
 
-  const targetPinId = pinIds.find((id) => id === hotel.id);
-  assert.ok(targetPinId, "the filtered category's partner pin should exist");
-  sandbox.openModal(targetPinId);
+  const targetMarker = markers.find(
+    (marker) => marker.options.title === `${hotel.name}の詳細を表示`,
+  );
+  assert.ok(targetMarker, "the filtered category's partner pin should exist");
+  targetMarker.handlers.click();
   assertModalMatchesPartner(elements, hotel);
 });
