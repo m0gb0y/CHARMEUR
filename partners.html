@@ -65,13 +65,14 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 
 /* Partner pins on map */
 .map-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; z-index: 10; pointer-events: auto; }
+.map-pin:focus-visible { outline: 2px solid var(--cream); outline-offset: 4px; border-radius: 50%; }
 .map-pin-dot { width: 28px; height: 28px; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: var(--black); border: 2px solid rgba(184,150,90,0.4); box-shadow: 0 0 12px rgba(184,150,90,0.3); transition: all 0.2s; font-family: 'Inter', sans-serif; letter-spacing: 0; }
-.map-pin:hover .map-pin-dot { transform: scale(1.25); box-shadow: 0 0 20px rgba(184,150,90,0.5); }
+.map-pin:hover .map-pin-dot, .map-pin:focus-visible .map-pin-dot { transform: scale(1.25); box-shadow: 0 0 20px rgba(184,150,90,0.5); }
 .map-pin-dot.dimmed { background: var(--gold-dim); opacity: 0.6; }
 
 /* Tooltip */
 .pin-tooltip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); background: var(--dark); border: 1px solid var(--border); padding: 10px 14px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 20; min-width: 140px; }
-.map-pin:hover .pin-tooltip { opacity: 1; }
+.map-pin:hover .pin-tooltip, .map-pin:focus-visible .pin-tooltip { opacity: 1; }
 .pin-tooltip-name { font-family: 'Cormorant Garamond', serif; font-size: 14px; color: var(--cream); margin-bottom: 2px; }
 .pin-tooltip-cat { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); }
 .pin-tooltip-area { font-size: 10px; color: var(--muted); margin-top: 2px; }
@@ -157,7 +158,7 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
     <div class="map-inner">
       <p style="font-size:9px;letter-spacing:0.35em;text-transform:uppercase;color:var(--gold);margin-bottom:12px;">PARTNER MAP</p>
       <h2 class="map-title">愛知県の<em>提携サロン分布。</em></h2>
-      <p class="map-sub">各ピンをタップすると詳細が表示されます。</p>
+      <p class="map-sub">各ピンをタップ、またはキーボードで選択すると詳細が表示されます。</p>
       <div class="map-wrapper" id="map-wrapper" style="position:relative;overflow:hidden;border:1px solid var(--border);">
         <!-- Google Maps embed centered on Nagoya/Aichi -->
         <iframe
@@ -296,7 +297,7 @@ function renderPins() {
   }
 
   pinsDiv.innerHTML = PARTNERS.filter(p => p.real && p.x !== null && p.x !== undefined && p.y !== null && p.y !== undefined && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y))).map(p => `
-    <div class="map-pin" style="left:${Number(p.x)}%;top:${Number(p.y)}%;" onclick="openModal('${escapePartnerHtml(p.id)}')">
+    <div class="map-pin" role="button" tabindex="0" aria-label="${escapePartnerHtml(p.name)}の詳細を表示" style="left:${Number(p.x)}%;top:${Number(p.y)}%;" onclick="openModal('${escapePartnerHtml(p.id)}')" onkeydown="if(event.key === 'Enter' || event.key === ' '){event.preventDefault();openModal('${escapePartnerHtml(p.id)}')}">
       <div class="map-pin-dot ${activeFilter !== 'all' && p.cat !== activeFilter ? 'dimmed' : ''}">${escapePartnerHtml(p.marker || p.id)}</div>
       <div class="pin-tooltip">
         <div class="pin-tooltip-name">${escapePartnerHtml(p.name)}</div>

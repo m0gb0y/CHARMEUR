@@ -129,6 +129,12 @@ function makeMapHarness() {
   return { elements, filterButtons, partners, sandbox };
 }
 
+function generatedPins(pinsHtml) {
+  return [...pinsHtml.matchAll(/<div class="map-pin"([^>]*)>/g)].map(
+    (match) => match[1],
+  );
+}
+
 function generatedPinIds(pinsHtml) {
   return [...pinsHtml.matchAll(/onclick="openModal\('([^']+)'\)"/g)].map(
     (match) => match[1],
@@ -158,6 +164,42 @@ test("clicking each map pin opens the detail for the partner represented by that
     sandbox.openModal(pinId);
     const partner = partners.find((entry) => entry.id === pinId);
     assertModalMatchesPartner(elements, partner);
+  }
+});
+
+test("map pins are keyboard-focusable and Enter or Space opens the matching detail", () => {
+  const { elements, partners, sandbox } = makeMapHarness();
+
+  sandbox.renderPins();
+  const pins = generatedPins(elements["map-pins"].innerHTML);
+  assert.equal(pins.length, partners.length);
+
+  for (const [index, pinAttributes] of pins.entries()) {
+    const partner = partners[index];
+    assert.match(pinAttributes, /role="button"/);
+    assert.match(pinAttributes, /tabindex="0"/);
+    assert.match(
+      pinAttributes,
+      new RegExp(`aria-label="${partner.name}の詳細を表示"`),
+    );
+
+    const keydownHandler = pinAttributes.match(/onkeydown="([^"]+)"/)?.[1];
+    assert.ok(keydownHandler, "each pin should handle keyboard activation");
+
+    for (const key of ["Enter", " "]) {
+      let preventedDefault = false;
+      sandbox.event = {
+        key,
+        preventDefault() {
+          preventedDefault = true;
+        },
+      };
+      vm.runInContext(keydownHandler, sandbox);
+
+      assert.equal(preventedDefault, true, `${key} should not scroll the page`);
+      assertModalMatchesPartner(elements, partner);
+      elements["modal-overlay"].classList.remove("open");
+    }
   }
 });
 
