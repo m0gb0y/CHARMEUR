@@ -41,3 +41,6 @@ run = ["python3", "-m", "gunicorn", "--bind", "0.0.0.0:5000", "--reuse-port", "s
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 180000
+
+[objectStorage]
+defaultBucketID = "replit-objstore-fc5e0d02-c2a9-4928-a694-46950fbcb6d1"
