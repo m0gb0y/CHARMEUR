@@ -141,6 +141,11 @@
               <input id="image_url" name="image_url" type="url" placeholder="https://example.com/photo.jpg">
             </div>
             <div class="field">
+              <label for="image-file">画像ファイルをアップロード</label>
+              <input id="image-file" name="image" type="file" accept="image/jpeg,image/png,image/webp">
+              <span class="map-position-status">JPEG・PNG・WebP、5MB以下。ファイルを選ぶと画像URLより優先されます。</span>
+            </div>
+            <div class="field">
               <label for="nexus_points">Nexus Point 上限</label>
               <input id="nexus_points" name="nexus_points" type="number" min="0" max="1000000" step="1" value="0">
             </div>
@@ -210,13 +215,16 @@
     const mapStatus = document.getElementById('map-position-status');
     const mapXInput = document.getElementById('map_x');
     const mapYInput = document.getElementById('map_y');
+    const imageFileInput = document.getElementById('image-file');
     let draggingMapPin = false;
 
     async function api(path, options = {}) {
+      const headers = { ...(options.headers || {}) };
+      if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
       const response = await fetch(path, {
         credentials: 'same-origin',
         ...options,
-        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+        headers
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || '処理に失敗しました。');
@@ -329,6 +337,7 @@
       document.getElementById('description').value = partner.description;
       document.getElementById('website_url').value = partner.website_url;
       document.getElementById('image_url').value = partner.image_url;
+      imageFileInput.value = '';
       document.getElementById('nexus_points').value = partner.nexus_points;
       document.getElementById('map_x').value = partner.map_x ?? '';
       document.getElementById('map_y').value = partner.map_y ?? '';
@@ -375,23 +384,34 @@
       event.preventDefault();
       const id = document.getElementById('partner-id').value;
       const button = document.getElementById('save-button');
-      const payload = {
-        name: value('name'),
-        category: value('category'),
-        area: value('area'),
-        description: value('description'),
-        website_url: value('website_url'),
-        image_url: value('image_url'),
-        nexus_points: Number(value('nexus_points') || 0),
-        map_x: value('map_x') || null,
-        map_y: value('map_y') || null,
-        display_order: Number(value('display_order') || 0),
-        published: document.getElementById('published').checked
-      };
       button.disabled = true;
       formMessage.textContent = '保存中…';
       formMessage.classList.remove('error');
       try {
+        if (imageFileInput.files.length) {
+          formMessage.textContent = '画像をアップロード中…';
+          const upload = new FormData();
+          upload.append('image', imageFileInput.files[0]);
+          const result = await api('/api/admin/uploads/partner-image', {
+            method: 'POST',
+            body: upload
+          });
+          document.getElementById('image_url').value = result.image_url;
+          imageFileInput.value = '';
+        }
+        const payload = {
+          name: value('name'),
+          category: value('category'),
+          area: value('area'),
+          description: value('description'),
+          website_url: value('website_url'),
+          image_url: value('image_url'),
+          nexus_points: Number(value('nexus_points') || 0),
+          map_x: value('map_x') || null,
+          map_y: value('map_y') || null,
+          display_order: Number(value('display_order') || 0),
+          published: document.getElementById('published').checked
+        };
         await api(id ? `/api/admin/partners/${encodeURIComponent(id)}` : '/api/admin/partners', {
           method: id ? 'PUT' : 'POST',
           body: JSON.stringify(payload)

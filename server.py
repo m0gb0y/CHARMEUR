@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import re
 import time
 import uuid
 from functools import wraps
@@ -14,12 +15,38 @@ from urllib.parse import urlsplit
 import psycopg
 from flask import Flask, abort, jsonify, make_response, request, send_from_directory
 from psycopg.rows import dict_row
+from replit.object_storage import Client
 
 
 ROOT = Path(__file__).resolve().parent
 PORT = int(os.environ.get("PORT", "5000"))
 SESSION_COOKIE = "partner_admin_session"
 SESSION_TTL = 12 * 60 * 60
+MAX_PARTNER_IMAGE_BYTES = 5 * 1024 * 1024
+PARTNER_IMAGE_TYPES = {
+    "jpg": (
+        "image/jpeg",
+        lambda data: data.startswith(b"\xff\xd8\xff") and data.endswith(b"\xff\xd9"),
+    ),
+    "png": (
+        "image/png",
+        lambda data: (
+            data.startswith(b"\x89PNG\r\n\x1a\n")
+            and len(data) >= 33
+            and data[12:16] == b"IHDR"
+            and data[-8:-4] == b"IEND"
+        ),
+    ),
+    "webp": (
+        "image/webp",
+        lambda data: (
+            len(data) >= 30
+            and data[:4] == b"RIFF"
+            and int.from_bytes(data[4:8], "little") == len(data) - 8
+            and data[8:12] == b"WEBP"
+        ),
+    ),
+}
 ALLOWED_CATEGORIES = {
     "hair", "grooming", "fashion", "photo", "wellness",
     "whitening", "clinic", "lesson",
@@ -35,7 +62,7 @@ PUBLIC_PAGES = {
 }
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = MAX_PARTNER_IMAGE_BYTES + 64 * 1024
 login_attempts: dict[str, list[float]] = {}
 
 
@@ -44,6 +71,10 @@ def db_connection():
     if not database_url:
         raise RuntimeError("DATABASE_URL is not configured")
     return psycopg.connect(database_url, row_factory=dict_row)
+
+
+def app_storage_client():
+    return Client(bucket_id=os.environ.get("PARTNER_IMAGE_BUCKET_ID"))
 
 
 def partner_json(row):
@@ -123,6 +154,10 @@ def validate_partner(payload, existing=None):
     for field in ("website_url", "image_url"):
         value = data[field]
         if value:
+            if field == "image_url" and re.fullmatch(
+                r"/uploads/partners/[a-f0-9]{32}\.(?:jpg|png|webp)", value
+            ):
+                continue
             parsed = urlsplit(value)
             if parsed.scheme != "https" or not parsed.netloc:
                 return None, "URLはhttps://から始まる有効なURLを入力してください。"
@@ -155,7 +190,10 @@ def validate_partner(payload, existing=None):
 
 @app.after_request
 def no_cache(response):
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    if request.path.startswith("/uploads/partners/") and response.status_code == 200:
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    else:
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
@@ -177,6 +215,22 @@ def static_page(page):
     if page not in PUBLIC_PAGES:
         abort(404)
     return send_from_directory(ROOT, page)
+
+
+@app.get("/uploads/partners/<filename>")
+def partner_image(filename):
+    if not re.fullmatch(r"[a-f0-9]{32}\.(?:jpg|png|webp)", filename):
+        abort(404)
+    try:
+        contents = app_storage_client().download_as_bytes(f"partner-images/{filename}")
+    except Exception:
+        app.logger.exception("Unable to retrieve partner image from App Storage")
+        abort(503)
+    mime_type = PARTNER_IMAGE_TYPES[filename.rsplit(".", 1)[1]][0]
+    response = make_response(contents)
+    response.headers["Content-Type"] = mime_type
+    response.headers["Content-Disposition"] = "inline"
+    return response
 
 
 @app.get("/api/partners")
@@ -255,6 +309,39 @@ def get_admin_partners():
                ORDER BY display_order, created_at"""
         ).fetchall()
     return jsonify(partners=[partner_json(row) for row in rows])
+
+
+@app.post("/api/admin/uploads/partner-image")
+@require_admin
+def upload_partner_image():
+    validate_same_origin()
+    image = request.files.get("image")
+    if image is None or not image.filename:
+        return jsonify(error="アップロードする画像を選択してください。"), 400
+
+    contents = image.stream.read(MAX_PARTNER_IMAGE_BYTES + 1)
+    if not contents:
+        return jsonify(error="画像ファイルが空です。"), 400
+    if len(contents) > MAX_PARTNER_IMAGE_BYTES:
+        return jsonify(error="画像は5MB以下のファイルを選択してください。"), 413
+
+    extension = next(
+        (
+            ext for ext, (_, signature_check) in PARTNER_IMAGE_TYPES.items()
+            if signature_check(contents)
+        ),
+        None,
+    )
+    if extension is None:
+        return jsonify(error="JPEG、PNG、WebP形式の画像を選択してください。"), 400
+
+    filename = f"{uuid.uuid4().hex}.{extension}"
+    try:
+        app_storage_client().upload_from_bytes(f"partner-images/{filename}", contents)
+    except Exception:
+        app.logger.exception("Unable to save partner image to App Storage")
+        return jsonify(error="画像の保存先を利用できません。設定を確認して再度お試しください。"), 503
+    return jsonify(image_url=f"/uploads/partners/{filename}"), 201
 
 
 @app.post("/api/admin/partners")
