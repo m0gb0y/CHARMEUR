@@ -165,15 +165,45 @@ def partner_json(row):
     return result
 
 
-def category_options(conn):
+def category_options(conn, include_inactive=False):
     custom_categories = conn.execute(
-        """SELECT id, label FROM partner_categories
+        """SELECT id, label, display_order FROM partner_categories
            ORDER BY display_order, label"""
     ).fetchall()
-    return [
-        *({"id": item["id"], "label": item["label"]} for item in CATEGORY_OPTIONS),
-        *({"id": row["id"], "label": row["label"]} for row in custom_categories),
-    ]
+    settings = conn.execute(
+        """SELECT category_id, display_order, is_active
+           FROM partner_category_settings"""
+    ).fetchall()
+    settings_by_id = {row["category_id"]: row for row in settings}
+
+    categories = []
+    for default_order, item in enumerate(CATEGORY_OPTIONS, start=1):
+        setting = settings_by_id.get(item["id"])
+        categories.append({
+            "id": item["id"],
+            "label": item["label"],
+            "display_order": setting["display_order"] if setting else default_order,
+            "active": setting["is_active"] if setting else True,
+        })
+    for row in custom_categories:
+        setting = settings_by_id.get(row["id"])
+        categories.append({
+            "id": row["id"],
+            "label": row["label"],
+            "display_order": (
+                setting["display_order"]
+                if setting
+                else len(CATEGORY_OPTIONS) + row["display_order"]
+            ),
+            "active": setting["is_active"] if setting else True,
+        })
+
+    categories.sort(key=lambda category: (
+        not category["active"], category["display_order"], category["label"]
+    ))
+    if not include_inactive:
+        categories = [category for category in categories if category["active"]]
+    return categories
 
 
 def admin_secret():
@@ -246,14 +276,12 @@ def validate_partner(payload, existing=None, conn=None):
 
     if not data["name"]:
         return None, "提携先名を入力してください。"
-    category_is_default = data["category"] in DEFAULT_CATEGORIES
-    category_is_custom = False
-    if not category_is_default and conn is not None:
-        category_is_custom = conn.execute(
-            "SELECT EXISTS (SELECT 1 FROM partner_categories WHERE id = %s) AS exists",
-            (data["category"],),
-        ).fetchone()["exists"]
-    if not category_is_default and not category_is_custom:
+    active_category_ids = (
+        {category["id"] for category in category_options(conn)}
+        if conn is not None
+        else set(DEFAULT_CATEGORIES)
+    )
+    if data["category"] not in active_category_ids:
         return None, "カテゴリを選択してください。"
 
     for field in ("website_url", "image_url"):
@@ -355,7 +383,11 @@ def get_public_partners():
 @app.get("/api/categories")
 def get_public_categories():
     with db_connection() as conn:
-        return jsonify(categories=category_options(conn))
+        categories = category_options(conn)
+        return jsonify(categories=[
+            {"id": category["id"], "label": category["label"]}
+            for category in categories
+        ])
 
 
 @app.post("/api/admin/login")
@@ -414,7 +446,7 @@ def admin_session():
 @require_admin
 def get_admin_categories():
     with db_connection() as conn:
-        return jsonify(categories=category_options(conn))
+        return jsonify(categories=category_options(conn, include_inactive=True))
 
 
 @app.post("/api/admin/categories")
@@ -449,10 +481,114 @@ def create_category():
                    RETURNING id, label""",
                 (category_id, label, next_order),
             ).fetchone()
-            categories = category_options(conn)
+            category_position = max(
+                (item["display_order"] for item in category_options(conn)),
+                default=0,
+            ) + 1
+            conn.execute(
+                """INSERT INTO partner_category_settings (category_id, display_order, is_active)
+                   VALUES (%s, %s, true)
+                   ON CONFLICT (category_id) DO UPDATE
+                   SET display_order = EXCLUDED.display_order, is_active = true""",
+                (category_id, category_position),
+            )
+            categories = category_options(conn, include_inactive=True)
     except psycopg.errors.UniqueViolation:
         return jsonify(error="同じジャンルがすでに登録されています。"), 409
     return jsonify(category=category, categories=categories), 201
+
+
+@app.delete("/api/admin/categories/<string:category_id>")
+@require_admin
+def delete_category(category_id):
+    validate_same_origin()
+    with db_connection() as conn:
+        category = next(
+            (
+                item for item in category_options(conn, include_inactive=True)
+                if item["id"] == category_id
+            ),
+            None,
+        )
+        if category is None:
+            return jsonify(error="ジャンルが見つかりません。"), 404
+        if not category["active"]:
+            return jsonify(error="このジャンルはすでに削除されています。"), 409
+
+        usage = conn.execute(
+            "SELECT COUNT(*) AS partner_count FROM partner_listings WHERE category = %s",
+            (category_id,),
+        ).fetchone()["partner_count"]
+        if usage:
+            return jsonify(
+                error=f"このジャンルを使っている提携先が{usage}件あります。先に各提携先のジャンルを変更してください。"
+            ), 409
+
+        conn.execute(
+            """INSERT INTO partner_category_settings (category_id, display_order, is_active)
+               VALUES (%s, %s, false)
+               ON CONFLICT (category_id) DO UPDATE SET is_active = false""",
+            (category_id, category["display_order"]),
+        )
+        categories = category_options(conn, include_inactive=True)
+    return jsonify(categories=categories)
+
+
+@app.post("/api/admin/categories/<string:category_id>/restore")
+@require_admin
+def restore_category(category_id):
+    validate_same_origin()
+    with db_connection() as conn:
+        category = next(
+            (
+                item for item in category_options(conn, include_inactive=True)
+                if item["id"] == category_id
+            ),
+            None,
+        )
+        if category is None:
+            return jsonify(error="ジャンルが見つかりません。"), 404
+        if not category["active"]:
+            next_order = max(
+                (item["display_order"] for item in category_options(conn)),
+                default=0,
+            ) + 1
+            conn.execute(
+                """INSERT INTO partner_category_settings (category_id, display_order, is_active)
+                   VALUES (%s, %s, true)
+                   ON CONFLICT (category_id) DO UPDATE
+                   SET display_order = EXCLUDED.display_order, is_active = true""",
+                (category_id, next_order),
+            )
+        categories = category_options(conn, include_inactive=True)
+    return jsonify(categories=categories)
+
+
+@app.put("/api/admin/categories/reorder")
+@require_admin
+def reorder_categories():
+    validate_same_origin()
+    payload = request.get_json(silent=True) or {}
+    category_ids = payload.get("category_ids")
+    if not isinstance(category_ids, list) or not all(
+        isinstance(category_id, str) for category_id in category_ids
+    ):
+        return jsonify(error="ジャンルの順番を確認してください。"), 400
+
+    with db_connection() as conn:
+        active_ids = [category["id"] for category in category_options(conn)]
+        if len(category_ids) != len(set(category_ids)) or set(category_ids) != set(active_ids):
+            return jsonify(error="ジャンル一覧が更新されています。再読み込みしてください。"), 409
+        for display_order, category_id in enumerate(category_ids, start=1):
+            conn.execute(
+                """INSERT INTO partner_category_settings (category_id, display_order, is_active)
+                   VALUES (%s, %s, true)
+                   ON CONFLICT (category_id) DO UPDATE
+                   SET display_order = EXCLUDED.display_order, is_active = true""",
+                (category_id, display_order),
+            )
+        categories = category_options(conn, include_inactive=True)
+    return jsonify(categories=categories)
 
 
 @app.get("/api/admin/partners")

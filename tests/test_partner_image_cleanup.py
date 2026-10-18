@@ -18,9 +18,13 @@ PARTNER_FIELDS = (
 class MemoryCursor:
     def __init__(self, row=None):
         self.row = row
+        self.rows = []
 
     def fetchone(self):
         return self.row
+
+    def fetchall(self):
+        return self.rows
 
 
 class MemoryPartnerDatabase:
@@ -35,6 +39,12 @@ class MemoryPartnerDatabase:
         return False
 
     def execute(self, query, params=()):
+        if "SELECT id, label, display_order FROM partner_categories" in query:
+            return MemoryCursor(row=None)
+
+        if "SELECT category_id, display_order, is_active" in query:
+            return MemoryCursor(row=None)
+
         if "SELECT EXISTS" in query:
             if self.fail_reference_check:
                 self.fail_reference_check = False

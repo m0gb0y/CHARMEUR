@@ -23,8 +23,12 @@
     h1 em { color:var(--gold); font-style:italic; }
     .intro { color:var(--muted); margin:8px 0 28px; }
     .panel { background:var(--dark); border:1px solid var(--border); padding:clamp(20px,4vw,32px); }
-    .category-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
-    .category-chip { display:inline-flex; align-items:center; min-height:32px; padding:4px 10px; border:1px solid var(--border); color:var(--cream); font-size:11px; }
+    .category-manager { display:grid; gap:8px; margin-top:14px; }
+    .category-manager-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 10px; border:1px solid var(--border); background:#0f0f12; }
+    .category-manager-row.inactive { opacity:.68; }
+    .category-manager-label { min-width:0; overflow-wrap:anywhere; font-size:12px; }
+    .category-manager-actions { display:flex; flex-wrap:wrap; gap:6px; flex-shrink:0; }
+    .category-manager-actions button { min-height:34px; padding:6px 10px; font-size:10px; letter-spacing:.04em; }
     .category-help { color:var(--muted); font-size:11px; margin:0; }
     .login-wrap { max-width:480px; margin:8vh auto; }
     .login-wrap h2, .section-heading { margin:0 0 16px; font:400 24px Cormorant Garamond,serif; }
@@ -77,6 +81,9 @@
       .partner-row { align-items:flex-start; flex-direction:column; }
       .row-actions { width:100%; }
       .row-actions button { flex:1; }
+      .category-manager-row { align-items:flex-start; flex-direction:column; }
+      .category-manager-actions { width:100%; }
+      .category-manager-actions button { flex:1; }
     }
   </style>
 </head>
@@ -123,7 +130,7 @@
           </div>
           <p id="category-message" class="message" role="status" aria-live="polite"></p>
         </form>
-        <div id="category-list" class="category-chips" aria-label="登録済みジャンル"></div>
+        <div id="category-list" class="category-manager" aria-label="登録済みジャンル"></div>
       </section>
 
       <section class="panel" aria-labelledby="form-title">
@@ -316,19 +323,116 @@
       const selected = categorySelect.value;
       categorySelect.replaceChildren();
       categoryList.replaceChildren();
-      for (const category of categories) {
+      const activeCategories = categories.filter(category => category.active !== false);
+      const inactiveCategories = categories.filter(category => category.active === false);
+      for (const category of activeCategories) {
         const option = document.createElement('option');
         option.value = category.id;
         option.textContent = category.label;
         categorySelect.append(option);
 
-        const chip = document.createElement('span');
-        chip.className = 'category-chip';
-        chip.textContent = category.label;
-        categoryList.append(chip);
+        const row = document.createElement('div');
+        row.className = 'category-manager-row';
+        const label = document.createElement('span');
+        label.className = 'category-manager-label';
+        label.textContent = category.label;
+        const actions = document.createElement('div');
+        actions.className = 'category-manager-actions';
+        const index = activeCategories.indexOf(category);
+        const moveUp = document.createElement('button');
+        moveUp.type = 'button';
+        moveUp.className = 'secondary';
+        moveUp.textContent = '↑';
+        moveUp.disabled = index === 0;
+        moveUp.setAttribute('aria-label', `${category.label}を上へ移動`);
+        moveUp.addEventListener('click', () => moveCategory(activeCategories, index, -1));
+        const moveDown = document.createElement('button');
+        moveDown.type = 'button';
+        moveDown.className = 'secondary';
+        moveDown.textContent = '↓';
+        moveDown.disabled = index === activeCategories.length - 1;
+        moveDown.setAttribute('aria-label', `${category.label}を下へ移動`);
+        moveDown.addEventListener('click', () => moveCategory(activeCategories, index, 1));
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'danger';
+        remove.textContent = '削除';
+        remove.addEventListener('click', () => deleteCategory(category));
+        actions.append(moveUp, moveDown, remove);
+        row.append(label, actions);
+        categoryList.append(row);
       }
-      if (categories.some(category => category.id === selected)) {
+      for (const category of inactiveCategories) {
+        const row = document.createElement('div');
+        row.className = 'category-manager-row inactive';
+        const label = document.createElement('span');
+        label.className = 'category-manager-label';
+        label.textContent = `${category.label}（削除済み）`;
+        const actions = document.createElement('div');
+        actions.className = 'category-manager-actions';
+        const restore = document.createElement('button');
+        restore.type = 'button';
+        restore.className = 'secondary';
+        restore.textContent = '再表示';
+        restore.addEventListener('click', () => restoreCategory(category));
+        actions.append(restore);
+        row.append(label, actions);
+        categoryList.append(row);
+      }
+      if (activeCategories.some(category => category.id === selected)) {
         categorySelect.value = selected;
+      }
+    }
+
+    async function moveCategory(categories, index, direction) {
+      const categoryIds = categories.map(category => category.id);
+      const target = index + direction;
+      if (target < 0 || target >= categoryIds.length) return;
+      [categoryIds[index], categoryIds[target]] = [categoryIds[target], categoryIds[index]];
+      categoryMessage.textContent = 'ジャンルの順番を保存中…';
+      categoryMessage.classList.remove('error');
+      try {
+        const data = await api('/api/admin/categories/reorder', {
+          method: 'PUT',
+          body: JSON.stringify({ category_ids: categoryIds })
+        });
+        renderCategories(data.categories);
+        categoryMessage.textContent = 'ジャンルの順番を保存しました。';
+      } catch (error) {
+        categoryMessage.textContent = error.message;
+        categoryMessage.classList.add('error');
+      }
+    }
+
+    async function deleteCategory(category) {
+      if (!window.confirm(`「${category.label}」をジャンル一覧から削除しますか？使用中の提携先がある場合は削除されません。`)) return;
+      categoryMessage.textContent = 'ジャンルを削除中…';
+      categoryMessage.classList.remove('error');
+      try {
+        const data = await api(`/api/admin/categories/${encodeURIComponent(category.id)}`, {
+          method: 'DELETE'
+        });
+        renderCategories(data.categories);
+        categoryMessage.textContent = `「${category.label}」を削除しました。必要なら再表示できます。`;
+      } catch (error) {
+        categoryMessage.textContent = error.message;
+        categoryMessage.classList.add('error');
+      }
+    }
+
+    async function restoreCategory(category) {
+      categoryMessage.textContent = 'ジャンルを再表示中…';
+      categoryMessage.classList.remove('error');
+      try {
+        const data = await api(`/api/admin/categories/${encodeURIComponent(category.id)}/restore`, {
+          method: 'POST',
+          body: '{}'
+        });
+        renderCategories(data.categories);
+        categoryMessage.textContent = `「${category.label}」を再表示しました。`;
+      } catch (error) {
+        categoryMessage.textContent = error.message;
+        categoryMessage.classList.add('error');
       }
     }
 

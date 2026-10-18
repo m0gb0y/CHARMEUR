@@ -81,6 +81,10 @@ class FakeElement {
     if (name === "src") this.src = "";
   }
 
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
+
   focus() {}
 
   getBoundingClientRect() {
@@ -136,9 +140,9 @@ function createAdminPage() {
   const revokedObjectUrls = [];
   const uploadResponses = [];
   let categoryOptions = [
-    { id: "hair", label: "美容院・ヘア" },
-    { id: "grooming", label: "身だしなみ" },
-    { id: "eyebrow", label: "眉毛" },
+    { id: "hair", label: "美容院・ヘア", active: true, display_order: 1 },
+    { id: "grooming", label: "身だしなみ", active: true, display_order: 2 },
+    { id: "eyebrow", label: "眉毛", active: true, display_order: 3 },
   ];
 
   class FakeFormData {
@@ -176,12 +180,43 @@ function createAdminPage() {
       } else if (url === "/api/admin/categories") {
         if (options.method === "POST") {
           const label = JSON.parse(options.body).label;
-          const category = { id: "custom_test", label };
+          const category = {
+            id: "custom_test",
+            label,
+            active: true,
+            display_order: categoryOptions.length + 1,
+          };
           categoryOptions = [...categoryOptions, category];
           body = { category, categories: categoryOptions };
         } else {
           body = { categories: categoryOptions };
         }
+      } else if (url === "/api/admin/categories/reorder") {
+        const ids = JSON.parse(options.body).category_ids;
+        const active = ids.map((id, index) => ({
+          ...categoryOptions.find((category) => category.id === id),
+          display_order: index + 1,
+        }));
+        categoryOptions = [
+          ...active,
+          ...categoryOptions.filter((category) => category.active === false),
+        ];
+        body = { categories: categoryOptions };
+      } else if (
+        url.startsWith("/api/admin/categories/") &&
+        options.method === "DELETE"
+      ) {
+        const id = decodeURIComponent(url.split("/").at(-1));
+        categoryOptions = categoryOptions.map((category) =>
+          category.id === id ? { ...category, active: false } : category,
+        );
+        body = { categories: categoryOptions };
+      } else if (url.endsWith("/restore") && options.method === "POST") {
+        const id = decodeURIComponent(url.split("/").at(-2));
+        categoryOptions = categoryOptions.map((category) =>
+          category.id === id ? { ...category, active: true } : category,
+        );
+        body = { categories: categoryOptions };
       } else if (url === "/api/admin/uploads/partner-image") {
         const response = uploadResponses.shift() || {
           ok: true,
@@ -314,7 +349,7 @@ test("admins can add a genre and save Nexus Point eligible courses", async () =>
     .dispatch("submit", { preventDefault() {} });
 
   assert.equal(page.getElementById("category").value, "custom_test");
-  assert.match(page.getElementById("category-list").children.at(-1).textContent, /ネイル/);
+  assert.match(page.getElementById("category-list").children.at(-1).children[0].textContent, /ネイル/);
   const categoryRequest = page.requests.find(
     ({ url, options }) =>
       url === "/api/admin/categories" && options.method === "POST",
@@ -342,6 +377,42 @@ test("admins can add a genre and save Nexus Point eligible courses", async () =>
   assert.equal(payload.category, "custom_test");
   assert.equal(payload.point_courses, fields.point_courses);
   assert.equal(payload.nexus_points, 3000);
+});
+
+test("admins can reorder, delete, and restore genres from the category manager", async () => {
+  const page = createAdminPage();
+  await waitForDashboard(page);
+
+  const firstRow = page.getElementById("category-list").children[0];
+  const firstName = firstRow.children[0].textContent;
+  const moveDown = firstRow.children[1].children[1];
+  await moveDown.dispatch("click");
+  const reorder = page.requests.find(
+    ({ url, options }) =>
+      url === "/api/admin/categories/reorder" && options.method === "PUT",
+  );
+  assert.ok(reorder, "moving a genre should save its new position");
+  assert.equal(JSON.parse(reorder.options.body).category_ids[1], "hair");
+
+  const movedRow = page.getElementById("category-list").children.find(
+    (row) => row.children[0].textContent === firstName,
+  );
+  await movedRow.children[1].children[2].dispatch("click");
+  const removeRequest = page.requests.find(
+    ({ url, options }) =>
+      url.startsWith("/api/admin/categories/") && options.method === "DELETE",
+  );
+  assert.ok(removeRequest, "deleting a genre should call the delete endpoint");
+
+  const hiddenRow = page.getElementById("category-list").children.find(
+    (row) => row.className.includes("inactive"),
+  );
+  await hiddenRow.children[1].children[0].dispatch("click");
+  const restoreRequest = page.requests.find(
+    ({ url, options }) =>
+      url.endsWith("/restore") && options.method === "POST",
+  );
+  assert.ok(restoreRequest, "restoring a genre should call the restore endpoint");
 });
 
 test("upload rejection preserves partner details and allows retry with a replacement image", async () => {

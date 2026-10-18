@@ -36,6 +36,7 @@ class MemoryPartnerDatabase:
     def __init__(self):
         self.partners = {}
         self.categories = {}
+        self.category_settings = {}
 
     def __enter__(self):
         return self
@@ -44,12 +45,33 @@ class MemoryPartnerDatabase:
         return False
 
     def execute(self, query, params=()):
-        if "SELECT id, label FROM partner_categories" in query:
+        if "SELECT id, label, display_order FROM partner_categories" in query:
             rows = sorted(
                 self.categories.values(),
                 key=lambda row: (row["display_order"], row["label"]),
             )
             return MemoryCursor(rows=[row.copy() for row in rows])
+
+        if "SELECT category_id, display_order, is_active" in query:
+            return MemoryCursor(rows=[
+                row.copy() for row in self.category_settings.values()
+            ])
+
+        if "SELECT COUNT(*) AS partner_count FROM partner_listings WHERE category = %s" in query:
+            partner_count = sum(
+                row["category"] == params[0] for row in self.partners.values()
+            )
+            return MemoryCursor(row={"partner_count": partner_count})
+
+        if "INSERT INTO partner_category_settings" in query:
+            category_id, display_order = params
+            is_active = "VALUES (%s, %s, false)" not in query
+            self.category_settings[category_id] = {
+                "category_id": category_id,
+                "display_order": display_order,
+                "is_active": is_active,
+            }
+            return MemoryCursor(row=self.category_settings[category_id].copy())
 
         if "SELECT EXISTS" in query and "partner_categories" in query:
             if "lower(label)" in query:
@@ -241,6 +263,66 @@ class PartnerMapCoordinateFlowTests(unittest.TestCase):
         second = self.client.post("/api/admin/categories", json={"label": "ネイル"})
         self.assertEqual(first.status_code, 201)
         self.assertEqual(second.status_code, 409)
+
+    def test_genres_can_be_reordered_and_public_filters_follow_the_saved_order(self):
+        initial_ids = [
+            category["id"]
+            for category in self.client.get("/api/admin/categories").get_json()["categories"]
+            if category["active"]
+        ]
+        reordered_ids = initial_ids[1:] + initial_ids[:1]
+
+        response = self.client.put(
+            "/api/admin/categories/reorder",
+            json={"category_ids": reordered_ids},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [category["id"] for category in response.get_json()["categories"] if category["active"]],
+            reordered_ids,
+        )
+        self.assertEqual(
+            [category["id"] for category in self.client.get("/api/categories").get_json()["categories"]],
+            reordered_ids,
+        )
+
+    def test_used_genre_cannot_be_deleted_until_partner_is_reassigned(self):
+        partner = self.client.post(
+            "/api/admin/partners",
+            json=self.payload(20, 40),
+        ).get_json()["partner"]
+
+        response = self.client.delete("/api/admin/categories/hair")
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("先に各提携先のジャンルを変更", response.get_json()["error"])
+        self.assertIn(
+            {"id": "hair", "label": "美容院・ヘア"},
+            self.client.get("/api/categories").get_json()["categories"],
+        )
+        self.assertEqual(partner["category"], "hair")
+
+    def test_unused_genre_can_be_hidden_and_restored(self):
+        deleted = self.client.delete("/api/admin/categories/fashion")
+        self.assertEqual(deleted.status_code, 200)
+        self.assertFalse(
+            next(item for item in deleted.get_json()["categories"] if item["id"] == "fashion")["active"]
+        )
+        self.assertNotIn(
+            "fashion",
+            [item["id"] for item in self.client.get("/api/categories").get_json()["categories"]],
+        )
+
+        restored = self.client.post("/api/admin/categories/fashion/restore")
+        self.assertEqual(restored.status_code, 200)
+        self.assertTrue(
+            next(item for item in restored.get_json()["categories"] if item["id"] == "fashion")["active"]
+        )
+        self.assertIn(
+            "fashion",
+            [item["id"] for item in self.client.get("/api/categories").get_json()["categories"]],
+        )
 
     def test_public_page_maps_api_coordinates_to_pin_position(self):
         html = (ROOT / "partners.html").read_text()
