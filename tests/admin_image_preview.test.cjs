@@ -102,6 +102,8 @@ const existingPartner = {
   category: "hair",
   area: "名古屋市",
   description: "",
+  staff_name: "山田 花子",
+  staff_role: "美容師",
   website_url: "",
   image_url: existingImageUrl,
   nexus_points: 0,
@@ -238,6 +240,11 @@ test("choosing a new image shows its local preview before saving", () => {
 });
 
 test("editing and saving without choosing an image keeps the registered image URL", async () => {
+  assert.match(
+    adminHtml,
+    /id="image_url"[^>]*type="text"/,
+    "local uploaded image paths must not be blocked by native URL validation",
+  );
   const page = createAdminPage();
   await waitForDashboard(page);
 
@@ -256,6 +263,9 @@ test("editing and saving without choosing an image keeps the registered image UR
   assert.match(previewStatus.textContent, /現在の登録画像/);
 
   const form = page.getElementById("partner-form");
+  page.getElementById("image_url").value = "";
+  page.getElementById("staff_name").value = "山田 花子";
+  page.getElementById("staff_role").value = "美容師";
   await form.dispatch("submit", { preventDefault() {} });
 
   const update = page.requests.find(
@@ -265,11 +275,33 @@ test("editing and saving without choosing an image keeps the registered image UR
   );
   assert.ok(update, "editing should send an update request");
   assert.equal(JSON.parse(update.options.body).image_url, existingImageUrl);
+  assert.equal(JSON.parse(update.options.body).staff_name, "山田 花子");
+  assert.equal(JSON.parse(update.options.body).staff_role, "美容師");
   assert.equal(
     page.requests.some(({ url }) => url === "/api/admin/uploads/partner-image"),
     false,
     "saving without a newly selected image should not upload a file",
   );
+});
+
+test("an existing image is only removed after an explicit request", async () => {
+  const page = createAdminPage();
+  await waitForDashboard(page);
+  const editButton = page
+    .getElementById("partner-list")
+    .children[0].children[1].children[0];
+  editButton.dispatch("click");
+  page.getElementById("image-clear-button").dispatch("click");
+  await page
+    .getElementById("partner-form")
+    .dispatch("submit", { preventDefault() {} });
+
+  const update = page.requests.find(
+    ({ url, options }) =>
+      url === `/api/admin/partners/${existingPartner.id}` &&
+      options.method === "PUT",
+  );
+  assert.equal(JSON.parse(update.options.body).image_url, "");
 });
 
 test("admins can add a genre and save Nexus Point eligible courses", async () => {
@@ -321,6 +353,8 @@ test("upload rejection preserves partner details and allows retry with a replace
     category: "wellness",
     area: "名古屋市中区",
     description: "入力した紹介文を保持します。",
+    staff_name: "佐藤 太郎",
+    staff_role: "講師",
     website_url: "https://example.com/partner",
     nexus_points: "250",
     map_x: "42.5",
@@ -395,6 +429,8 @@ test("upload rejection preserves partner details and allows retry with a replace
     category: fields.category,
     area: fields.area,
     description: fields.description,
+    staff_name: fields.staff_name,
+    staff_role: fields.staff_role,
     website_url: fields.website_url,
     image_url: "/uploads/partners/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.jpg",
     nexus_points: 250,

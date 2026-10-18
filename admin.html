@@ -162,17 +162,26 @@
               <textarea id="description" name="description" maxlength="2000"></textarea>
             </div>
             <div class="field">
+              <label for="staff_name">担当者名（任意）</label>
+              <input id="staff_name" name="staff_name" maxlength="120" placeholder="例：山田 花子">
+            </div>
+            <div class="field">
+              <label for="staff_role">担当者の肩書き（任意）</label>
+              <input id="staff_role" name="staff_role" maxlength="120" placeholder="例：美容師">
+            </div>
+            <div class="field">
               <label for="image_url">画像URL（任意）</label>
-              <input id="image_url" name="image_url" type="url" placeholder="https://example.com/photo.jpg">
+              <input id="image_url" name="image_url" type="text" inputmode="url" placeholder="https://example.com/photo.jpg">
             </div>
             <div class="field">
               <label for="image-file">画像ファイルをアップロード</label>
               <input id="image-file" name="image" type="file" accept="image/jpeg,image/png,image/webp">
-              <span class="map-position-status">JPEG・PNG・WebP、5MB以下。ファイルを選ぶと画像URLより優先されます。</span>
+              <span class="map-position-status">JPEG・PNG・WebP、5MB以下。編集中は現在の画像を維持し、差し替える場合だけ新しい画像を選んでください。</span>
               <div id="image-preview" class="image-preview hidden">
                 <img id="image-preview-image" alt="提携先画像のプレビュー">
               </div>
               <p id="image-preview-status" class="map-position-status" aria-live="polite">登録画像はここに表示されます。ファイルを選ぶと保存前に確認できます。</p>
+              <button id="image-clear-button" class="secondary hidden" type="button">登録画像を削除</button>
             </div>
             <div class="field">
               <label for="nexus_points">Nexus Point 上限</label>
@@ -252,9 +261,12 @@
     const imagePreview = document.getElementById('image-preview');
     const imagePreviewImage = document.getElementById('image-preview-image');
     const imagePreviewStatus = document.getElementById('image-preview-status');
+    const imageClearButton = document.getElementById('image-clear-button');
     // map_x/map_y are normalized positions inside the same fixed map range as partners.html.
     const PARTNER_MAP_BOUNDS = { south: 34.93, north: 35.43, west: 136.65, east: 137.20 };
     let imagePreviewObjectUrl = '';
+    let originalImageUrl = '';
+    let clearImageRequested = false;
     let mapPickerMap = null;
     let mapPickerMarker = null;
 
@@ -283,8 +295,11 @@
     function resetForm() {
       form.reset();
       document.getElementById('partner-id').value = '';
+      originalImageUrl = '';
+      clearImageRequested = false;
       document.getElementById('nexus_points').value = '0';
       document.getElementById('display_order').value = '0';
+      syncImageClearButton();
       renderImagePreview();
       renderMapPosition();
       document.getElementById('form-title').textContent = '提携先を追加';
@@ -339,7 +354,7 @@
       const selectedFile = imageFileInput.files[0];
       const imageUrl = selectedFile
         ? (imagePreviewObjectUrl = URL.createObjectURL(selectedFile))
-        : imageUrlInput.value.trim();
+        : (imageUrlInput.value.trim() || (clearImageRequested ? '' : originalImageUrl));
 
       if (!imageUrl) {
         imagePreviewImage.removeAttribute('src');
@@ -352,7 +367,18 @@
       imagePreview.classList.remove('hidden');
       imagePreviewStatus.textContent = selectedFile
         ? '選択した画像をプレビュー中です。保存後に登録されます。'
-        : '現在の登録画像を表示しています。';
+        : (imageUrlInput.value.trim() && imageUrlInput.value.trim() !== originalImageUrl
+          ? '登録する画像を表示しています。'
+          : '現在の登録画像を表示しています。');
+    }
+
+    function syncImageClearButton() {
+      const hasSavedImage = Boolean(document.getElementById('partner-id').value && originalImageUrl);
+      if (hasSavedImage && !clearImageRequested) {
+        imageClearButton.classList.remove('hidden');
+      } else {
+        imageClearButton.classList.add('hidden');
+      }
     }
 
     function mapPercentToLatLng(x, y) {
@@ -532,9 +558,14 @@
       document.getElementById('category').value = partner.category;
       document.getElementById('area').value = partner.area;
       document.getElementById('description').value = partner.description;
+      document.getElementById('staff_name').value = partner.staff_name || '';
+      document.getElementById('staff_role').value = partner.staff_role || '';
       document.getElementById('website_url').value = partner.website_url;
-      imageUrlInput.value = partner.image_url;
+      originalImageUrl = partner.image_url || '';
+      clearImageRequested = false;
+      imageUrlInput.value = originalImageUrl;
       imageFileInput.value = '';
+      syncImageClearButton();
       renderImagePreview();
       document.getElementById('nexus_points').value = partner.nexus_points;
       document.getElementById('point_courses').value = partner.point_courses || '';
@@ -607,8 +638,12 @@
           category: value('category'),
           area: value('area'),
           description: value('description'),
+          staff_name: value('staff_name'),
+          staff_role: value('staff_role'),
           website_url: value('website_url'),
-          image_url: value('image_url'),
+          image_url: clearImageRequested
+            ? ''
+            : (value('image_url') || (id ? originalImageUrl : '')),
           nexus_points: Number(value('nexus_points') || 0),
           point_courses: value('point_courses'),
           map_x: value('map_x') || null,
@@ -631,8 +666,23 @@
       }
     });
 
-    imageFileInput.addEventListener('change', renderImagePreview);
-    imageUrlInput.addEventListener('input', renderImagePreview);
+    imageFileInput.addEventListener('change', () => {
+      if (imageFileInput.files.length) clearImageRequested = false;
+      syncImageClearButton();
+      renderImagePreview();
+    });
+    imageUrlInput.addEventListener('input', () => {
+      if (imageUrlInput.value.trim()) clearImageRequested = false;
+      syncImageClearButton();
+      renderImagePreview();
+    });
+    imageClearButton.addEventListener('click', () => {
+      clearImageRequested = true;
+      imageUrlInput.value = '';
+      imageFileInput.value = '';
+      syncImageClearButton();
+      renderImagePreview();
+    });
     cancelEdit.addEventListener('click', resetForm);
     mapXInput.addEventListener('input', renderMapPosition);
     mapYInput.addEventListener('input', renderMapPosition);

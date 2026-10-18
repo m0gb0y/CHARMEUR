@@ -12,7 +12,7 @@ import server
 
 ROOT = Path(__file__).resolve().parents[1]
 PARTNER_FIELDS = (
-    "id", "name", "category", "area", "description", "website_url",
+    "id", "name", "category", "area", "description", "staff_name", "staff_role", "website_url",
     "image_url", "nexus_points", "point_courses", "map_x", "map_y",
     "published", "display_order",
 )
@@ -86,13 +86,14 @@ class MemoryPartnerDatabase:
 
         if "UPDATE partner_listings SET" in query:
             (
-                name, category, area, description, website_url, image_url,
+                name, category, area, description, staff_name, staff_role, website_url, image_url,
                 nexus_points, point_courses, map_x, map_y, published,
                 display_order, partner_id,
             ) = params
             row = self.partners[partner_id]
             row.update(
                 name=name, category=category, area=area, description=description,
+                staff_name=staff_name, staff_role=staff_role,
                 website_url=website_url, image_url=image_url,
                 nexus_points=nexus_points, point_courses=point_courses,
                 map_x=map_x, map_y=map_y,
@@ -144,6 +145,8 @@ class PartnerMapCoordinateFlowTests(unittest.TestCase):
             "category": "hair",
             "area": "名古屋市",
             "description": "座標保存の回帰テスト",
+            "staff_name": "山田 花子",
+            "staff_role": "美容師",
             "website_url": "",
             "image_url": "",
             "nexus_points": 0,
@@ -168,6 +171,8 @@ class PartnerMapCoordinateFlowTests(unittest.TestCase):
         partner_id = partner["id"]
         self.assertEqual((partner["map_x"], partner["map_y"]), initial_position)
         self.assertEqual(partner["point_courses"], "通常カット\nカラーコース")
+        self.assertEqual(partner["staff_name"], "山田 花子")
+        self.assertEqual(partner["staff_role"], "美容師")
         saved_partner = self.database.partners[uuid.UUID(partner_id)]
         self.assertEqual((saved_partner["map_x"], saved_partner["map_y"]), initial_position)
 
@@ -176,6 +181,8 @@ class PartnerMapCoordinateFlowTests(unittest.TestCase):
         public_partner = public_response.get_json()["partners"][0]
         self.assertEqual((public_partner["map_x"], public_partner["map_y"]), initial_position)
         self.assertEqual(public_partner["point_courses"], "通常カット\nカラーコース")
+        self.assertEqual(public_partner["staff_name"], "山田 花子")
+        self.assertEqual(public_partner["staff_role"], "美容師")
 
         updated_position = (72.3, 19.6)
         updated = self.client.put(
@@ -187,6 +194,8 @@ class PartnerMapCoordinateFlowTests(unittest.TestCase):
             (updated.get_json()["partner"]["map_x"], updated.get_json()["partner"]["map_y"]),
             updated_position,
         )
+        self.assertEqual(updated.get_json()["partner"]["staff_name"], "山田 花子")
+        self.assertEqual(updated.get_json()["partner"]["staff_role"], "美容師")
         saved_partner = self.database.partners[uuid.UUID(partner_id)]
         self.assertEqual((saved_partner["map_x"], saved_partner["map_y"]), updated_position)
 
@@ -246,6 +255,9 @@ class PartnerMapCoordinateFlowTests(unittest.TestCase):
         self.assertIn(".map(p => ({ partner: p, x: Number(p.x), y: Number(p.y) }))", html)
         self.assertIn("L.marker(percentToPartnerLatLng(x, y)", html)
         self.assertIn("point_courses: partner.point_courses || ''", html)
+        self.assertIn("stylist: partner.staff_name || legacy?.stylist || ''", html)
+        self.assertIn("role: partner.staff_role || legacy?.role || ''", html)
+        self.assertIn("担当：${escapePartnerHtml(p.stylist)}", html)
         self.assertIn("modal-point-courses-text", html)
         self.assertIn("renderCategoryFilters(categories)", html)
 

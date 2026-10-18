@@ -341,7 +341,7 @@ function renderGrid() {
       ${p.photo ? `<div style="width:100%;height:200px;overflow:hidden;margin-bottom:14px;"><img src="${escapePartnerHtml(p.photo)}" style="width:100%;height:100%;object-fit:cover;object-position:${escapePartnerHtml(p.photoPos||'center')};" alt="${escapePartnerHtml(p.name)}"></div>` : ''}
       <div class="partner-category">${escapePartnerHtml(CATEGORIES[p.cat] || p.cat)}</div>
       <div class="partner-name">${escapePartnerHtml(p.name)}</div>
-      ${p.stylist ? `<div style="font-size:11px;color:#B8965A;margin-bottom:4px;letter-spacing:0.05em;">担当：${escapePartnerHtml(p.stylist)}（${escapePartnerHtml(p.role)}）</div>` : ''}
+      ${p.stylist ? `<div style="font-size:11px;color:#B8965A;margin-bottom:4px;letter-spacing:0.05em;">担当：${escapePartnerHtml(p.stylist)}${p.role ? `（${escapePartnerHtml(p.role)}）` : ''}</div>` : ''}
       <div class="partner-area">📍 ${escapePartnerHtml(p.area)}</div>
       <div class="partner-desc">${escapePartnerHtml(p.desc)}</div>
       ${p.point > 0 ? `<div style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:4px 10px;background:rgba(184,150,90,0.08);border:1px solid rgba(184,150,90,0.18);"><span style="font-size:12px;">✦</span><span style="font-size:10px;color:#B8965A;letter-spacing:0.1em;">上限 ${p.point.toLocaleString()} Nexus Point / 回</span></div>` : ''}
@@ -530,8 +530,8 @@ fetch('/api/partners', { cache: 'no-store' })
         url: partner.website_url || '#',
         photo: partner.image_url || legacy?.photo || '',
         photoPos: legacy?.photoPos || 'center',
-        stylist: legacy?.stylist || '',
-        role: legacy?.role || '',
+        stylist: partner.staff_name || legacy?.stylist || '',
+        role: partner.staff_role || legacy?.role || '',
         point: partner.nexus_points,
         point_courses: partner.point_courses || '',
         x: partner.map_x ?? legacy?.x ?? null,

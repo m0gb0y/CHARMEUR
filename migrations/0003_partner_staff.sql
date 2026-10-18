@@ -1,0 +1,3 @@
+ALTER TABLE partner_listings
+    ADD COLUMN IF NOT EXISTS staff_name TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS staff_role TEXT NOT NULL DEFAULT '';

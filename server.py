@@ -69,7 +69,7 @@ CATEGORY_OPTIONS = (
 )
 DEFAULT_CATEGORIES = {category["id"]: category["label"] for category in CATEGORY_OPTIONS}
 PARTNER_FIELDS = (
-    "id", "name", "category", "area", "description", "website_url",
+    "id", "name", "category", "area", "description", "staff_name", "staff_role", "website_url",
     "image_url", "nexus_points", "point_courses", "map_x", "map_y",
     "published", "display_order",
 )
@@ -225,6 +225,8 @@ def validate_partner(payload, existing=None, conn=None):
         ("category", "", 30),
         ("area", "", 120),
         ("description", "", 2000),
+        ("staff_name", "", 120),
+        ("staff_role", "", 120),
         ("point_courses", "", 2000),
         ("website_url", "", 500),
         ("image_url", "", 1000),
@@ -340,7 +342,7 @@ def partner_image(filename):
 def get_public_partners():
     with db_connection() as conn:
         rows = conn.execute(
-            """SELECT id, name, category, area, description, website_url,
+            """SELECT id, name, category, area, description, staff_name, staff_role, website_url,
                       image_url, nexus_points, point_courses, map_x, map_y,
                       published, display_order
                FROM partner_listings
@@ -458,7 +460,7 @@ def create_category():
 def get_admin_partners():
     with db_connection() as conn:
         rows = conn.execute(
-            """SELECT id, name, category, area, description, website_url,
+            """SELECT id, name, category, area, description, staff_name, staff_role, website_url,
                       image_url, nexus_points, point_courses, map_x, map_y,
                       published, display_order
                FROM partner_listings
@@ -518,15 +520,16 @@ def create_partner():
             ).fetchone()["next_order"]
         row = conn.execute(
             """INSERT INTO partner_listings
-               (id, name, category, area, description, website_url, image_url,
+               (id, name, category, area, description, staff_name, staff_role, website_url, image_url,
                 nexus_points, point_courses, map_x, map_y, published, display_order)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-               RETURNING id, name, category, area, description, website_url,
-                         image_url, nexus_points, point_courses, map_x, map_y,
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, name, category, area, description, staff_name, staff_role,
+                          website_url, image_url, nexus_points, point_courses, map_x, map_y,
                          published, display_order""",
             (
                 partner_id, data["name"], data["category"], data["area"],
-                data["description"], data["website_url"], data["image_url"],
+                 data["description"], data["staff_name"], data["staff_role"],
+                 data["website_url"], data["image_url"],
                 data["nexus_points"], data["point_courses"], data["map_x"],
                 data["map_y"], data["published"], data["display_order"],
             ),
@@ -540,7 +543,7 @@ def update_partner(partner_id):
     validate_same_origin()
     with db_connection() as conn:
         existing = conn.execute(
-            """SELECT id, name, category, area, description, website_url,
+            """SELECT id, name, category, area, description, staff_name, staff_role, website_url,
                       image_url, nexus_points, point_courses, map_x, map_y,
                       published, display_order
                FROM partner_listings WHERE id = %s""",
@@ -556,16 +559,18 @@ def update_partner(partner_id):
         row = conn.execute(
             """UPDATE partner_listings SET
                  name = %s, category = %s, area = %s, description = %s,
+                 staff_name = %s, staff_role = %s,
                  website_url = %s, image_url = %s, nexus_points = %s,
                  point_courses = %s,
                  map_x = %s, map_y = %s, published = %s, display_order = %s,
                  updated_at = NOW()
                WHERE id = %s
-               RETURNING id, name, category, area, description, website_url,
+               RETURNING id, name, category, area, description, staff_name, staff_role, website_url,
                          image_url, nexus_points, point_courses, map_x, map_y,
                          published, display_order""",
             (
                 data["name"], data["category"], data["area"], data["description"],
+                data["staff_name"], data["staff_role"],
                 data["website_url"], data["image_url"], data["nexus_points"],
                 data["point_courses"], data["map_x"], data["map_y"], data["published"],
                 data["display_order"], partner_id,
