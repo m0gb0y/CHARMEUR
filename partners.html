@@ -57,8 +57,8 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .point-course-note { margin-top: 12px; padding: 10px 12px; border: 1px solid rgba(184,150,90,.18); background: rgba(184,150,90,.06); }
 .point-course-label { margin-bottom: 4px; color: var(--gold); font-size: 9px; letter-spacing: .12em; }
 .point-course-text { color: var(--muted); font-size: 11px; line-height: 1.7; white-space: pre-line; }
-.partner-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
-.partner-link:hover { border-color: var(--gold); }
+.partner-link, .partner-site-link { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; padding: 9px 14px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--cream); background: rgba(184,150,90,0.14); border: 1px solid var(--gold); text-decoration: none; transition: transform 0.18s, opacity 0.18s; }
+.partner-link:hover, .partner-site-link:hover { background: rgba(184,150,90,0.24); }
 
 /* MAP SECTION */
 .map-section { background: var(--dark); border-top: 1px solid var(--border); }
@@ -79,8 +79,8 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .partner-map-icon:focus-visible { outline: 2px solid var(--cream); outline-offset: 3px; border-radius: 50%; }
 .partner-map-icon:hover .map-pin-dot, .partner-map-icon:focus-visible .map-pin-dot { transform: scale(1.25); box-shadow: 0 0 20px rgba(184,150,90,0.5); }
 .map-legend { margin-top: 12px; background: rgba(12,12,14,0.9); border: 1px solid var(--border); padding: 10px 14px; }
-.map-external-link { position: absolute; top: 12px; right: 12px; z-index: 800; padding: 8px 12px; background: rgba(240,237,232,.94); color: #315b88; font-size: 12px; text-decoration: none; border-radius: 2px; }
-.map-external-link:hover { background: #fff; }
+.map-external-link { min-height: 44px; position: absolute; top: 12px; right: 12px; z-index: 800; display: inline-flex; align-items: center; justify-content: center; padding: 10px 16px; background: var(--gold); border: 1px solid var(--cream); color: var(--black); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; border-radius: 2px; transition: transform 0.18s, opacity 0.18s; }
+.map-external-link:hover { opacity: 0.88; transform: translateY(-2px); }
 
 /* Partner pins on map */
 .map-pin { position: absolute; transform: translate(-50%, -50%); cursor: pointer; z-index: 10; pointer-events: auto; }
@@ -111,7 +111,10 @@ html.modal-open { overflow: hidden; }
 .modal-point-courses { margin: -8px 0 20px; padding: 12px 14px; border: 1px solid rgba(184,150,90,.22); background: rgba(184,150,90,.06); }
 .modal-point-courses-label { margin-bottom: 4px; color: var(--gold); font-size: 9px; letter-spacing: .12em; }
 .modal-point-courses-text { color: var(--muted); font-size: 12px; line-height: 1.7; white-space: pre-line; }
-.modal-btn { display: block; text-align: center; background: var(--gold); color: var(--black); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; padding: 14px; text-decoration: none; font-weight: 500; }
+.modal-btn { min-height: 52px; display: flex; align-items: center; justify-content: center; text-align: center; background: var(--gold); border: 1px solid var(--gold); color: var(--black); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; padding: 14px; text-decoration: none; font-weight: 600; transition: transform 0.18s, opacity 0.18s; }
+.modal-btn:hover { opacity: 0.88; transform: translateY(-2px); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--cream); outline-offset: 4px; }
+.partner-link:active, .partner-site-link:active, .map-external-link:active, .modal-btn:active { opacity: 0.76; transform: translateY(0); }
 
 /* Footer */
 footer { background: var(--black); border-top: 1px solid var(--border); padding: 32px 24px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
@@ -346,7 +349,7 @@ function renderGrid() {
       <div class="partner-desc">${escapePartnerHtml(p.desc)}</div>
       ${p.point > 0 ? `<div style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:4px 10px;background:rgba(184,150,90,0.08);border:1px solid rgba(184,150,90,0.18);"><span style="font-size:12px;">✦</span><span style="font-size:10px;color:#B8965A;letter-spacing:0.1em;">上限 ${p.point.toLocaleString()} Nexus Point / 回</span></div>` : ''}
       ${p.point_courses ? `<div class="point-course-note"><div class="point-course-label">NEXUS POINT 利用可能コース</div><div class="point-course-text">${escapePartnerHtml(p.point_courses)}</div></div>` : ''}
-      ${p.url && p.url !== '#' ? `<a href="${escapePartnerHtml(p.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="display:inline-block;margin-top:10px;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#B8965A;border-bottom:1px solid rgba(184,150,90,0.3);text-decoration:none;padding-bottom:2px;">サイトを見る →</a>` : `<span style="display:inline-block;margin-top:10px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#7A7570;border:1px dashed rgba(184,150,90,0.15);padding:3px 10px;">Coming Soon</span>`}
+      ${p.url && p.url !== '#' ? `<a class="partner-site-link" href="${escapePartnerHtml(p.url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">サイトを見る →</a>` : `<span style="display:inline-block;margin-top:10px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#7A7570;border:1px dashed rgba(184,150,90,0.15);padding:3px 10px;">Coming Soon</span>`}
     </div>
   `).join('');
 }

@@ -31,7 +31,7 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .nav-logo span { color: var(--gold); }
 .nav-sub { font-size: 8px; letter-spacing: 0.2em; color: var(--muted); display: block; margin-top: 2px; }
 .nav-links { display: none; }
-.nav-cta { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold-dim); padding: 8px 16px; text-decoration: none; white-space: nowrap; }
+.nav-cta { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--black); background: var(--gold); border: 1px solid var(--gold); padding: 9px 18px; text-decoration: none; white-space: nowrap; font-weight: 600; transition: transform 0.18s, opacity 0.18s; }
 
 /* HERO */
 .hero { min-height: 100svh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 88px 24px 56px; position: relative; background: var(--black); overflow: hidden; }
@@ -43,7 +43,7 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; a
 .hero-jp { font-family: 'Cormorant Garamond', serif; font-size: 14px; font-weight: 300; color: var(--muted); letter-spacing: 0.1em; line-height: 2.1; margin-bottom: 40px; position: relative; text-align: center; }
 .hero-jp strong { color: var(--cream); font-weight: 400; }
 .hero-actions { display: flex; flex-direction: column; gap: 14px; align-items: center; position: relative; }
-.btn-primary { background: var(--gold); color: var(--black); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; padding: 16px 32px; text-decoration: none; font-weight: 500; display: inline-block; }
+.btn-primary { min-height: 52px; display: inline-flex; align-items: center; justify-content: center; background: var(--gold); color: var(--black); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; padding: 16px 32px; text-decoration: none; font-weight: 600; border: 1px solid var(--gold); transition: transform 0.18s, opacity 0.18s; }
 .btn-ghost { color: var(--muted); font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; text-decoration: none; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
 
 /* COMMON */
@@ -127,9 +127,9 @@ section { position: relative; }
 .plan-features { list-style: none; }
 .plan-features li { font-size: 12px; color: var(--muted); padding: 8px 0; border-bottom: 1px solid rgba(184,150,90,0.06); display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
 .plan-features li::before { content: '—'; color: var(--gold-dim); flex-shrink: 0; }
-.plan-cta { display: block; margin-top: 28px; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; text-align: center; padding: 15px; text-decoration: none; }
-.plan-cta.outline { border: 1px solid var(--border); color: var(--muted); }
-.plan-cta.gold { background: var(--gold); color: var(--black); font-weight: 500; }
+.plan-cta { min-height: 52px; display: flex; align-items: center; justify-content: center; margin-top: 28px; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; text-align: center; padding: 15px; text-decoration: none; transition: transform 0.18s, opacity 0.18s; }
+.plan-cta.outline { border: 1px solid var(--gold); background: rgba(184,150,90,0.12); color: var(--cream); }
+.plan-cta.gold { border: 1px solid var(--gold); background: var(--gold); color: var(--black); font-weight: 600; }
 
 /* CHARMEUR */
 .charmeur { background: var(--dark); }
@@ -139,7 +139,7 @@ section { position: relative; }
 .brand-badge-name { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); }
 .charmeur-logo-img { width: 100%; max-width: 300px; display: block; margin: 0 auto 24px; border-radius: 0; }
 .charmeur-body-text { font-size: 13px; color: var(--muted); line-height: 2; margin-bottom: 28px; }
-.btn-charmeur { display: block; text-align: center; background: transparent; border: 1px solid var(--gold); color: var(--gold); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; padding: 16px 32px; text-decoration: none; }
+.btn-charmeur { min-height: 52px; display: flex; align-items: center; justify-content: center; text-align: center; background: rgba(184,150,90,0.14); border: 1px solid var(--gold); color: var(--cream); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; padding: 16px 32px; text-decoration: none; transition: transform 0.18s, opacity 0.18s; }
 .charmeur-note { text-align: center; font-size: 10px; color: var(--muted); margin-top: 10px; }
 .radar-wrap { background: var(--slate); border: 1px solid var(--border); padding: 28px 20px; }
 .radar-title { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); text-align: center; margin-bottom: 20px; }
@@ -187,7 +187,7 @@ section { position: relative; }
 .line-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(28px, 7vw, 46px); font-weight: 300; line-height: 1.2; margin-bottom: 16px; }
 .line-title em { font-style: italic; color: var(--gold); }
 .line-sub { font-size: 13px; color: var(--muted); margin-bottom: 40px; line-height: 1.9; }
-.btn-line { display: inline-flex; align-items: center; gap: 12px; background: #06C755; color: #fff; font-size: 14px; font-weight: 500; letter-spacing: 0.05em; padding: 18px 36px; text-decoration: none; border-radius: 4px; }
+.btn-line { min-height: 56px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; background: #06C755; color: #07190D; border: 1px solid #42E57B; font-size: 14px; font-weight: 600; letter-spacing: 0.05em; padding: 16px 36px; text-decoration: none; border-radius: 4px; transition: transform 0.18s, opacity 0.18s; }
 .btn-line-icon { font-size: 22px; line-height: 1; }
 .line-note { font-size: 10px; color: var(--muted); margin-top: 16px; }
 
@@ -242,7 +242,7 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 .drawer-link { display: block; font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 300; color: var(--muted); text-decoration: none; padding: 16px 0; border-bottom: 1px solid var(--border); transition: color 0.2s; letter-spacing: 0.05em; }
 .drawer-link:hover { color: var(--cream); }
 .drawer-link span { font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); display: block; margin-bottom: 2px; font-family: 'Inter', sans-serif; font-weight: 300; }
-.drawer-cta { margin-top: 32px; display: block; background: var(--gold); color: var(--black); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; padding: 16px; text-align: center; text-decoration: none; font-weight: 500; }
+.drawer-cta { min-height: 52px; margin-top: 32px; display: flex; align-items: center; justify-content: center; background: var(--gold); border: 1px solid var(--gold); color: var(--black); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; padding: 16px; text-align: center; text-decoration: none; font-weight: 600; transition: transform 0.18s, opacity 0.18s; }
 
 /* MOTE COIN */
 .coin-section { background: var(--slate); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
@@ -264,8 +264,11 @@ footer { background: var(--black); border-top: 1px solid var(--border); padding:
 .coin-exchange-reward .coin-exchange-amount { color: var(--cream); }
 .coin-exchange-caption { font-size: 11px; color: var(--muted); line-height: 1.55; text-wrap: balance; }
 .coin-exchange-equals { font-size: 22px; color: var(--gold-dim); font-weight: 300; }
-.btn-partners { display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 14px 28px; border: 1px solid var(--gold-dim); color: var(--gold); font-size: 11px; letter-spacing: 0.16em; text-decoration: none; transition: background 0.2s,color 0.2s,border-color 0.2s; }
-.btn-partners:hover { background: var(--gold); border-color: var(--gold); color: var(--black); }
+.btn-partners { min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 14px 28px; border: 1px solid var(--gold); background: var(--gold); color: var(--black); font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-decoration: none; transition: transform 0.18s, opacity 0.18s; }
+.btn-line-inline { min-height: 52px; display: flex; align-items: center; justify-content: center; margin-top: 10px; padding: 14px 18px; background: #06C755; border: 1px solid #42E57B; border-radius: 4px; color: #07190D; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-align: center; text-decoration: none; transition: transform 0.18s, opacity 0.18s; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--cream); outline-offset: 4px; }
+.nav-cta:hover, .btn-primary:hover, .plan-cta:hover, .btn-charmeur:hover, .btn-line:hover, .drawer-cta:hover, .btn-partners:hover, .btn-line-inline:hover { opacity: 0.88; transform: translateY(-2px); }
+.nav-cta:active, .btn-primary:active, .plan-cta:active, .btn-charmeur:active, .btn-line:active, .drawer-cta:active, .btn-partners:active, .btn-line-inline:active { opacity: 0.76; transform: translateY(0); }
 .coin-rate { display: flex; align-items: center; gap: 0; margin-bottom: 28px; flex-wrap: wrap; gap: 0; }
 .coin-rate-item { text-align: center; flex: 1; padding: 20px 12px; }
 .coin-rate-item + .coin-rate-item { border-left: 1px solid var(--border); }
@@ -748,7 +751,7 @@ body > *:not(#aura-canvas):not(nav) { position: relative; z-index: 1; }
         <p style="font-size:9px;letter-spacing:0.2em;color:#4FA882;margin-bottom:2px;">COMING SOON</p>
         <p style="font-size:11px;color:#7A7570;">サポート内容は準備中です</p>
       </div>
-      <a href="https://lin.ee/uvuyKK4" target="_blank" style="display:block;text-align:center;border:1px solid rgba(58,138,110,0.4);color:#4FA882;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:14px;text-decoration:none;">詳細を公式LINEで聞く</a>
+      <a class="btn-line-inline" href="https://lin.ee/uvuyKK4" target="_blank">詳細を公式LINEで聞く</a>
     </div>
     </div>
   </div>
@@ -889,8 +892,8 @@ body > *:not(#aura-canvas):not(nav) { position: relative; z-index: 1; }
         <div style="font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--gold);margin-bottom:6px;">STEP 03</div>
         <div style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:400;color:var(--cream);margin-bottom:16px;">💬 LINEで無料相談する</div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:20px;">診断結果を持って相談すると、あなた専用の改善プランをその場で提案します。</div>
-        <a href="https://lin.ee/uvuyKK4" target="_blank"
-           style="display:block;background:#06C755;color:#fff;font-size:13px;font-weight:500;letter-spacing:0.05em;padding:16px;text-decoration:none;border-radius:4px;text-align:center;">
+        <a class="btn-line-inline" href="https://lin.ee/uvuyKK4" target="_blank"
+           style="margin-top:0;font-size:13px;letter-spacing:0.05em;padding:16px;">
           💬 公式LINEで無料相談する
         </a>
         <p style="font-size:10px;color:var(--muted);margin-top:10px;">初回カウンセリングは完全無料。強引な勧誘は一切ありません。</p>
